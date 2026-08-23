@@ -1,0 +1,71 @@
+<template>
+  <div class="main-wrapper">
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+    <div>主面板sfsf</div>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'Home',
+};
+</script>
+<style lang="less" scoped></style>

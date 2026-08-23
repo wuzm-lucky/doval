@@ -1,0 +1,40 @@
+{
+  "name": "doval",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --open --mode development",
+    "build": "vite build --mode release",
+    "preview": "vite preview",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@vueuse/core": "^14.3.0",
+    "axios": "^1.18.1",
+    "dayjs": "^1.11.21",
+    "echarts": "^6.1.0",
+    "lightningcss": "^1.32.0",
+    "lodash": "^4.18.1",
+    "nprogress": "^0.2.0",
+    "pinia": "^3.0.4",
+    "pinia-plugin-persistedstate": "^4.7.1",
+    "qs": "^6.15.3",
+    "tdesign-icons-vue-next": "^0.4.4",
+    "tdesign-vue-next": "^1.20.2",
+    "tvision-color": "^1.6.0",
+    "vue": "^3.5.39",
+    "vue-i18n": "^11.4.6",
+    "vue-router": "^5.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "@vitejs/plugin-vue-jsx": "^5.1.6",
+    "@vue/compiler-sfc": "~3.5.39",
+    "less": "^4.6.7",
+    "prettier": "^3.8.5",
+    "vite": "^8.1.0",
+    "vite-svg-loader": "^5.1.1",
+    "vue-tsc": "^3.3.5"
+  }
+}

@@ -1,0 +1,20 @@
+import { createApp } from 'vue';
+import TDesign from 'tdesign-vue-next';
+
+import App from './App.vue';
+import router from './router/index.js';
+import { store } from './store/index.js';
+import i18n from './locales/index.js';
+
+import 'tdesign-vue-next/es/style/index.css';
+import '@/style/index.less';
+import './permission.js';
+
+const app = createApp(App);
+
+app.use(TDesign);
+app.use(store);
+app.use(router);
+app.use(i18n);
+
+app.mount('#app');

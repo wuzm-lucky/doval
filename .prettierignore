@@ -1,0 +1,5 @@
+# 依赖与构建产物由对应工具生成，无需纳入源码格式化。
+node_modules/
+dist/
+coverage/
+.vscode/
