@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!isRefreshing">
+  <div v-if="!isRefreshing" :class="`${prefix}-content-layout-wrapper`">
     <router-view v-if="!isFramePage" v-slot="{ Component }">
       <transition name="fade" mode="out-in">
         <keep-alive :include="aliveViews">
@@ -17,6 +17,7 @@ import isBoolean from 'lodash/isBoolean';
 import isUndefined from 'lodash/isUndefined';
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { prefix } from '@/config/global';
 
 import FramePage from '@/layouts/frame/index.vue';
 import { useTabsRouterStore } from '@/store';

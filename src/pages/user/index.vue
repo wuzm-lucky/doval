@@ -1,5 +1,5 @@
 <template>
-  <div class="main-wrapper">
+  <div :class="prefix + '-main-wrapper'">
     <t-card :bordered="false" class="detail-card">
       <div class="detail-header">
         <t-avatar :image="headPictureUrl" size="100px" />
@@ -81,10 +81,10 @@
     </t-card>
   </div>
 </template>
-
 <script setup>
 import { ref, onMounted, reactive } from 'vue';
 import { MessagePlugin } from 'tdesign-vue-next';
+import { prefix } from '@/config/global';
 
 const account = ref({});
 const form = reactive({});

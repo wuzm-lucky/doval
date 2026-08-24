@@ -1,5 +1,5 @@
 <template>
-  <div class="main-wrapper">
+  <div :class="prefix + '-main-wrapper'">
     <div>主面板sfsf</div>
     <div>主面板sfsf</div>
     <div>主面板sfsf</div>
@@ -67,5 +67,8 @@
 export default {
   name: 'Home',
 };
+</script>
+<script setup>
+import { prefix } from '@/config/global';
 </script>
 <style lang="less" scoped></style>
