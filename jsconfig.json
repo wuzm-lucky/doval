@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@framework/*": ["./src/framework/*"],
+      "@base/*": ["./src/modules/base/*"],
+      "@web3/*": ["./src/modules/web3/*"]
     }
   },
   "exclude": ["node_modules", "dist"]

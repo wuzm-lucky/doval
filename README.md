@@ -64,18 +64,10 @@ npm run dev
 doval/
 ├── public/                 # 无需构建处理的静态资源
 ├── src/
-│   ├── api/                # 接口定义
-│   ├── assets/             # 图片、SVG 等资源
-│   ├── components/         # 通用组件
-│   ├── config/             # 全局与样式配置
-│   ├── hooks/              # 组合式函数
-│   ├── layouts/            # 页面布局及布局组件
-│   ├── locales/            # 国际化配置与语言包
-│   ├── pages/              # 业务页面
-│   ├── router/             # 路由与路由模块
-│   ├── store/              # Pinia 状态模块
-│   ├── style/              # 全局 Less 样式
-│   ├── utils/              # 路由、请求、日期等工具
+│   ├── framework/          # 框架能力：启动、布局、路由、状态、国际化与通用资源
+│   ├── modules/            # 可选业务模块
+│   │   ├── base/           # 默认启用的基础业务模块
+│   │   └── web3/           # Web3 业务模块示例
 │   ├── App.vue             # 根组件
 │   └── main.js             # 应用入口
 ├── .env                    # 通用环境变量
@@ -93,25 +85,53 @@ doval/
 - 个人中心：`/user/index`
 - 结果页：成功、失败、网络异常、403、404、500、浏览器不兼容和系统维护等页面
 
-路由模块位于 `src/router/modules/`。新增业务模块时，建议按现有模块结构新建路由文件，并在 `src/pages/` 中放置对应页面组件。
+框架固定路由位于 `src/framework/router/modules/`。业务路由由已启用模块的入口声明，后端菜单指向未启用模块页面时会沿用既有 404 兜底行为。
 
 ## 开发说明
 
 ### 路径别名
 
-`@` 指向 `src` 目录，可用于简化模块引用：
+`@` 指向 `src` 目录，`@framework` 指向框架能力。Vite 会根据 `src/modules/` 下的一级目录生成模块别名，例如 `@base`、`@web3`：
 
 ```js
-import { request } from '@/utils/request';
+import { request } from '@framework/utils/request';
 ```
 
 ### 接口调用
 
-接口请求统一通过 `src/utils/request/` 中的封装发起，接口模块集中在 `src/api/`。新增接口时，请优先复用该请求实例，以保持请求头、错误处理和取消请求等行为一致。
+接口请求统一通过 `src/framework/utils/request/` 中的封装发起，框架接口集中在 `src/framework/api/`。业务模块专属接口应放在自身 `api/` 目录中。
 
 ### 国际化
 
-语言包位于 `src/locales/lang/`，当前提供简体中文与英文。新增界面文案时，请同步补充相应语言包，避免在组件中直接写死可见文本。
+框架语言包位于 `src/framework/locales/lang/`，当前提供简体中文与英文。模块语言包由模块入口的 `messages` 声明合并；业务文案必须使用模块名命名空间，例如 `web3.wallet.connect`。
+
+### 业务模块开发
+
+每个业务模块位于 `src/modules/<模块名>/`，目录名即模块名称。模块可按需要维护 `api`、`assets`、`components`、`locales`、`pages`、`router`、`store`、`utils` 和 `bootstrap.js`；不使用 `index.js`、`module.config.js`、模块依赖声明或额外公开接口文件。
+
+```js
+export function install(app, { registerGlobalComponent }) {
+  // 注册模块全局组件或执行模块初始化。
+}
+```
+
+模块启用范围完全由 `--modules` 决定，构建不补齐依赖也不做模块依赖校验。`framework` 不能导入业务模块；业务模块可直接引用其他模块的实际文件路径，例如 `@base/components/UserSelector.vue`。`bootstrap.js` 可选导出 `install`，多个模块按命令参数顺序初始化。模块注册的全局组件必须以模块名前缀命名，例如 `web3-wallet-widget`。模块目录名不可与保留别名 `@`、`@framework` 冲突。
+
+默认只启用 `base`：
+
+```bash
+npm run dev
+npm run build
+```
+
+启用多个模块时使用英文逗号分隔：
+
+```bash
+npm run dev -- --modules=base,web3
+npm run build -- --modules=base,web3
+```
+
+空模块名、重复模块名或未知模块名会使启动和构建失败。遗漏业务模块导致运行时组件不可用时，请人工将所需模块加入 `--modules` 后重新构建。
 
 ### 代码格式
 

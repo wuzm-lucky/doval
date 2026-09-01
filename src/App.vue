@@ -6,8 +6,8 @@
 <script setup>
 import { computed } from 'vue';
 
-import { useLocale } from '@/locales/useLocale';
-import { useSettingStore } from '@/store';
+import { useLocale } from '@framework/locales/useLocale';
+import { useSettingStore } from '@framework/store';
 
 const store = useSettingStore();
 
