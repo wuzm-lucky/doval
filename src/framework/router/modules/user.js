@@ -5,15 +5,15 @@ import { LAYOUT } from '@framework/utils/route/constant';
 
 export default [
   {
-    path: '/user',
-    name: 'user',
+    path: '/profile',
+    name: 'profile',
     component: LAYOUT,
-    redirect: '/user/index',
+    redirect: '/profile/index',
     meta: { title: { zh_CN: '个人中心', en_US: 'User Center' }, icon: 'user-circle' },
     children: [
       {
         path: 'index',
-        name: 'UserIndex',
+        name: 'ProfileIndex',
         component: () => import('@framework/pages/user/index.vue'),
         meta: { title: { zh_CN: '个人中心', en_US: 'User Center' } },
       },

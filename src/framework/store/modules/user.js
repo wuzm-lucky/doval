@@ -33,6 +33,8 @@ export const useUserStore = defineStore('user', {
     refreshTokenExpiresIn: null,
     clientId: createClientId(),
     userInfo: { ...InitUserInfo },
+    // 用户资料不持久化：浏览器刷新后会恢复为 false，并在首次路由导航时重新获取。
+    userInfoLoaded: false,
   }),
   getters: {
     roles: (state) => {
@@ -56,6 +58,7 @@ export const useUserStore = defineStore('user', {
     async login(loginDto) {
       const tokenVo = await loginByAuth(loginDto);
       this.saveSession(tokenVo);
+      this.userInfoLoaded = false;
       await this.getUserInfo();
     },
     /** 使用 Refresh Token 刷新会话；刷新凭据为一次性凭据。 */
@@ -67,8 +70,13 @@ export const useUserStore = defineStore('user', {
       this.saveSession(tokenVo);
     },
     async getUserInfo() {
+      if (this.userInfoLoaded) {
+        return;
+      }
+
       const profile = await getCurrentProfile();
       this.setUserInfo(profile);
+      this.userInfoLoaded = true;
     },
     /** 将后端资料模型转换为前端顶部展示模型。 */
     setUserInfo(profile) {
@@ -77,6 +85,7 @@ export const useUserStore = defineStore('user', {
         name: profile.nickname || profile.username || '',
         roles: [],
       };
+      this.userInfoLoaded = true;
     },
     /** 保存当前用户允许编辑的资料，并同步 Store 内的展示信息。 */
     async updateProfile(profileDto) {
@@ -91,6 +100,7 @@ export const useUserStore = defineStore('user', {
       this.accessTokenExpiresIn = null;
       this.refreshTokenExpiresIn = null;
       this.userInfo = { ...InitUserInfo };
+      this.userInfoLoaded = false;
     },
     /** 主动退出时通知服务端立即失效当前客户端会话。 */
     async logout() {

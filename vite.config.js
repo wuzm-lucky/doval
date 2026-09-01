@@ -67,47 +67,87 @@ function collectFiles(directory, extension) {
 }
 
 /**
+ * 判断文件是否位于指定目录内，避免同名前缀目录被误识别为模块资源。
+ *
+ * @param {string} directory 待判断的目录。
+ * @param {string} file 待判断的文件。
+ * @returns {boolean} 文件是否位于目录内。
+ */
+function isFileInDirectory(directory, file) {
+  const relativePath = path.relative(directory, file);
+  return relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+}
+
+/**
  * 为本次构建生成仅包含已启用模块的静态清单，避免未启用模块进入 Rollup 分析。
+ * 开发环境会在路由、语言包或模块初始化文件变化时重新生成清单并刷新页面。
  *
  * @author wuzm
  */
 function enabledModulesPlugin(enabledModules) {
-  const imports = [];
-  const declarations = enabledModules.map((moduleName, moduleIndex) => {
-    const moduleDirectory = path.join(MODULES_DIRECTORY, moduleName);
-    const routeFiles = collectFiles(path.join(moduleDirectory, 'router'), '.js');
-    const localeFiles = collectFiles(path.join(moduleDirectory, 'locales'), '.json');
-    const routeImports = routeFiles.map((filePath, fileIndex) => {
-      const variable = `route${moduleIndex}_${fileIndex}`;
-      imports.push(
-        `import * as ${variable} from '@${moduleName}/${path.relative(moduleDirectory, filePath).replaceAll('\\', '/')}';`,
-      );
-      return variable;
+  const moduleDirectories = enabledModules.map((moduleName) => path.join(MODULES_DIRECTORY, moduleName));
+
+  /** 实时读取文件清单，确保新增、删除和移动文件后不会继续引用旧路径。 */
+  function createModuleManifest() {
+    const imports = [];
+    const declarations = enabledModules.map((moduleName, moduleIndex) => {
+      const moduleDirectory = path.join(MODULES_DIRECTORY, moduleName);
+      const routeFiles = collectFiles(path.join(moduleDirectory, 'router'), '.js');
+      const localeFiles = collectFiles(path.join(moduleDirectory, 'locales'), '.json');
+      const routeImports = routeFiles.map((filePath, fileIndex) => {
+        const variable = `route${moduleIndex}_${fileIndex}`;
+        imports.push(
+          `import * as ${variable} from '@${moduleName}/${path.relative(moduleDirectory, filePath).replaceAll('\\', '/')}';`,
+        );
+        return variable;
+      });
+      const localeImports = localeFiles.map((filePath, fileIndex) => {
+        const variable = `locale${moduleIndex}_${fileIndex}`;
+        const locale = path.basename(filePath, '.json');
+        imports.push(
+          `import ${variable} from '@${moduleName}/${path.relative(moduleDirectory, filePath).replaceAll('\\', '/')}';`,
+        );
+        return `${JSON.stringify(locale)}: { ...${variable} }`;
+      });
+      const bootstrapPath = path.join(moduleDirectory, 'bootstrap.js');
+      const bootstrapVariable = `bootstrap${moduleIndex}`;
+      if (fs.existsSync(bootstrapPath))
+        imports.push(`import * as ${bootstrapVariable} from '@${moduleName}/bootstrap.js';`);
+      return `{ name: '${moduleName}', routeModules: [${routeImports.join(', ')}], messages: { ${localeImports.join(', ')} }, install: ${
+        fs.existsSync(bootstrapPath) ? `${bootstrapVariable}.install` : 'undefined'
+      } }`;
     });
-    const localeImports = localeFiles.map((filePath, fileIndex) => {
-      const variable = `locale${moduleIndex}_${fileIndex}`;
-      const locale = path.basename(filePath, '.json');
-      imports.push(
-        `import ${variable} from '@${moduleName}/${path.relative(moduleDirectory, filePath).replaceAll('\\', '/')}';`,
-      );
-      return `${JSON.stringify(locale)}: { ...${variable} }`;
-    });
-    const bootstrapPath = path.join(moduleDirectory, 'bootstrap.js');
-    const bootstrapVariable = `bootstrap${moduleIndex}`;
-    if (fs.existsSync(bootstrapPath))
-      imports.push(`import * as ${bootstrapVariable} from '@${moduleName}/bootstrap.js';`);
-    return `{ name: '${moduleName}', routeModules: [${routeImports.join(', ')}], messages: { ${localeImports.join(', ')} }, install: ${
-      fs.existsSync(bootstrapPath) ? `${bootstrapVariable}.install` : 'undefined'
-    } }`;
-  });
-  const source = `${imports.join('\n')}\n\nexport default [${declarations.join(', ')}];\n`;
+    return `${imports.join('\n')}\n\nexport default [${declarations.join(', ')}];\n`;
+  }
+
+  /** 判断变更是否影响模块清单。 */
+  function affectsModuleManifest(file) {
+    if (!moduleDirectories.some((directory) => isFileInDirectory(directory, file))) return false;
+    return (
+      (file.endsWith('.js') &&
+        (file.includes(`${path.sep}router${path.sep}`) || file.endsWith(`${path.sep}bootstrap.js`))) ||
+      (file.endsWith('.json') && file.includes(`${path.sep}locales${path.sep}`))
+    );
+  }
+
   return {
     name: 'doval-enabled-modules',
     resolveId(id) {
       return id === VIRTUAL_MODULE_ID ? RESOLVED_VIRTUAL_MODULE_ID : null;
     },
     load(id) {
-      return id === RESOLVED_VIRTUAL_MODULE_ID ? source : null;
+      return id === RESOLVED_VIRTUAL_MODULE_ID ? createModuleManifest() : null;
+    },
+    hotUpdate({ file }) {
+      if (!affectsModuleManifest(file)) return;
+
+      // 虚拟模块没有实体文件，必须主动清除其转换缓存，页面刷新后才会重新扫描目录。
+      const virtualModule = this.environment.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID);
+      if (virtualModule) this.environment.moduleGraph.invalidateModule(virtualModule);
+
+      // 文件新增、删除和移动无法由普通模块热替换可靠恢复，统一刷新页面以重建路由和国际化状态。
+      this.environment.hot.send({ type: 'full-reload', path: '*' });
+      return [];
     },
   };
 }

@@ -29,7 +29,7 @@
 
           <t-dropdown :min-column-width="120" trigger="click">
             <template #dropdown>
-              <t-dropdown-item class="operations-dropdown-container-item" @click="handleNav('/user/index')">
+              <t-dropdown-item class="operations-dropdown-container-item" @click="handleNav('/profile/index')">
                 <user-circle-icon />{{ t('layout.header.user') }}
               </t-dropdown-item>
               <t-dropdown-item class="operations-dropdown-container-item" @click="handleLogout">
