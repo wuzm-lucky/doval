@@ -3,12 +3,15 @@ import isString from 'lodash/isString';
 import merge from 'lodash/merge';
 
 import { ContentTypeEnum } from '@/constants';
+import router from '@/router';
 import { useUserStore } from '@/store';
 
 import { VAxios } from './Axios';
 import { formatRequestDate, joinTimestamp, setObjToUrlParams } from './utils';
 
 const env = import.meta.env.MODE || 'development';
+const appCode = import.meta.env.VITE_APP_CODE || '';
+let refreshPromise = null;
 
 // 如果是mock模式 或 没启用直连代理 就不配置host 会走本地Mock拦截 或 Vite 代理
 const host = env === 'mock' || import.meta.env.VITE_IS_REQUEST_PROXY !== 'true' ? '' : import.meta.env.VITE_API_URL;
@@ -107,11 +110,14 @@ const transform = {
   requestInterceptors: (config, options) => {
     // 请求之前处理config
     const userStore = useUserStore();
-    const { token } = userStore;
+    const { accessToken, clientId } = userStore;
+    config.headers = config.headers || {};
+    config.headers['X-Client-Id'] = clientId;
+    config.headers['X-Client-Type'] = 'WEB';
+    config.headers['X-App'] = appCode;
 
-    if (token && config?.requestOptions?.withToken !== false) {
-      // jwt token
-      config.headers.Authorization = options.authenticationScheme ? `${options.authenticationScheme} ${token}` : token;
+    if (accessToken && config?.requestOptions?.withToken !== false) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
   },
@@ -124,6 +130,28 @@ const transform = {
   // 响应错误处理
   responseInterceptorsCatch: (error, instance) => {
     const { config } = error;
+    const isUnauthorized = error.response?.status === 401;
+    if (isUnauthorized && config && !config.requestOptions?.skipAuthRefresh && !config.__authRetried) {
+      const userStore = useUserStore();
+      config.__authRetried = true;
+      refreshPromise =
+        refreshPromise ||
+        userStore.refreshSession().finally(() => {
+          refreshPromise = null;
+        });
+      return refreshPromise
+        .then(() => instance.request(config))
+        .catch((refreshError) => {
+          userStore.clearSession();
+          if (router.currentRoute.value.path !== '/login') {
+            router.replace({
+              path: '/login',
+              query: { redirect: encodeURIComponent(router.currentRoute.value.fullPath) },
+            });
+          }
+          return Promise.reject(refreshError);
+        });
+    }
     if (!config || !config.requestOptions.retry) return Promise.reject(error);
 
     config.retryCount = config.retryCount || 0;

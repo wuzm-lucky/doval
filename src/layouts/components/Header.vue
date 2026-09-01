@@ -20,6 +20,13 @@
           <notice />
 
           <language-switcher />
+
+          <t-tooltip placement="bottom" :content="t('layout.header.setting')">
+            <t-button theme="default" shape="square" variant="text" @click="toggleSettingPanel">
+              <setting-icon />
+            </t-button>
+          </t-tooltip>
+
           <t-dropdown :min-column-width="120" trigger="click">
             <template #dropdown>
               <t-dropdown-item class="operations-dropdown-container-item" @click="handleNav('/user/index')">
@@ -37,11 +44,6 @@
               <template #suffix><chevron-down-icon /></template>
             </t-button>
           </t-dropdown>
-          <t-tooltip placement="bottom" :content="t('layout.header.setting')">
-            <t-button theme="default" shape="square" variant="text" @click="toggleSettingPanel">
-              <setting-icon />
-            </t-button>
-          </t-tooltip>
         </div>
       </template>
     </t-head-menu>
@@ -57,7 +59,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import { prefix } from '@/config/global';
 import { t } from '@/locales';
 import { getActive } from '@/router';
-import { useSettingStore, useUserStore } from '@/store';
+import { getMenuStore, useSettingStore, useUserStore } from '@/store';
 
 import MenuContent from './MenuContent.vue';
 import Notice from './Notice.vue';
@@ -129,7 +131,14 @@ const changeCollapsed = () => {
   });
 };
 
-const handleLogout = () => {
+const handleLogout = async () => {
+  try {
+    await user.logout();
+  } catch (_error) {
+    // 本地会话已在 Store 的 finally 中清理，退出后仍应回到登录页。
+  } finally {
+    getMenuStore().resetMenuList();
+  }
   router.push({
     path: '/login',
     query: { redirect: encodeURIComponent(router.currentRoute.value.fullPath) },

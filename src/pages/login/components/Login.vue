@@ -68,7 +68,7 @@
     </template>
 
     <t-form-item v-if="type !== 'qrcode'" class="btn-container">
-      <t-button block size="large" type="submit"> {{ t('pages.login.signIn') }} </t-button>
+      <t-button block size="large" :loading="submitting" type="submit"> {{ t('pages.login.signIn') }} </t-button>
     </t-form-item>
 
     <div class="switch-container">
@@ -87,14 +87,15 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { useCounter } from '@/hooks';
 import { t } from '@/locales';
+import { sendMessageVerificationCode, verifyMessageVerificationCode } from '@/api/auth';
 import { useUserStore } from '@/store';
 
 const userStore = useUserStore();
 
 const INITIAL_DATA = {
   phone: '',
-  account: 'admin',
-  password: 'admin',
+  account: '',
+  password: '',
   verifyCode: '',
   checked: false,
 };
@@ -111,6 +112,8 @@ const type = ref('password');
 const form = ref();
 const formData = ref({ ...INITIAL_DATA });
 const showPsw = ref(false);
+const submitting = ref(false);
+const messageChallengeId = ref('');
 
 const [countDown, handleCounter] = useCounter();
 
@@ -124,27 +127,60 @@ const route = useRoute();
 /**
  * 发送验证码
  */
-const sendCode = () => {
-  form.value?.validate({ fields: ['phone'] }).then((e) => {
-    if (e === true) {
-      handleCounter();
-    }
-  });
+const sendCode = async () => {
+  const valid = await form.value?.validate({ fields: ['phone'] });
+  if (valid !== true) {
+    return;
+  }
+  try {
+    const challenge = await sendMessageVerificationCode({
+      authType: 'PHONE',
+      identifier: formData.value.phone,
+      scene: 'LOGIN',
+    });
+    messageChallengeId.value = challenge.challengeId;
+    handleCounter();
+    MessagePlugin.success('验证码已发送');
+  } catch (error) {
+    MessagePlugin.error(error instanceof Error ? error.message : String(error));
+  }
 };
 
 const onSubmit = async (ctx) => {
-  if (ctx.validateResult === true) {
-    try {
-      await userStore.login(formData.value);
-
-      MessagePlugin.success(t('pages.login.loginSuccess'));
-      const redirect = route.query.redirect;
-      const redirectUrl = redirect ? decodeURIComponent(redirect) : '/home';
-      router.push(redirectUrl);
-    } catch (e) {
-      console.log(e);
-      MessagePlugin.error(e instanceof Error ? e.message : String(e));
+  if (ctx.validateResult !== true) {
+    return;
+  }
+  submitting.value = true;
+  try {
+    if (type.value === 'password') {
+      await userStore.login({
+        authType: 'ACCOUNT',
+        identifier: formData.value.account,
+        password: formData.value.password,
+      });
+    } else {
+      if (!messageChallengeId.value) {
+        throw new Error('请先发送短信验证码');
+      }
+      const verificationTicket = await verifyMessageVerificationCode({
+        authType: 'PHONE',
+        identifier: formData.value.phone,
+        scene: 'LOGIN',
+        challengeId: messageChallengeId.value,
+        code: formData.value.verifyCode,
+      });
+      await userStore.login({ authType: 'PHONECODE', identifier: formData.value.phone, verificationTicket });
+      messageChallengeId.value = '';
     }
+
+    MessagePlugin.success(t('pages.login.loginSuccess'));
+    const redirect = route.query.redirect;
+    const redirectUrl = redirect ? decodeURIComponent(redirect) : '/home';
+    router.push(redirectUrl);
+  } catch (error) {
+    MessagePlugin.error(error instanceof Error ? error.message : String(error));
+  } finally {
+    submitting.value = false;
   }
 };
 </script>

@@ -15,7 +15,7 @@ router.beforeEach(async (to, _from, next) => {
 
   const userStore = useUserStore();
 
-  if (userStore.token) {
+  if (userStore.accessToken) {
     if (to.path === '/login') {
       next();
       return;
@@ -30,7 +30,9 @@ router.beforeEach(async (to, _from, next) => {
         next(`/`);
       }
     } catch (error) {
-      MessagePlugin.error(error.message);
+      userStore.clearSession();
+      getMenuStore().resetMenuList();
+      MessagePlugin.error(error.message || '登录状态已失效');
       next({
         path: '/login',
         query: { redirect: encodeURIComponent(to.fullPath) },
@@ -52,11 +54,5 @@ router.beforeEach(async (to, _from, next) => {
 });
 
 router.afterEach((to) => {
-  if (to.path === '/login') {
-    const userStore = useUserStore();
-
-    userStore.logout();
-    getMenuStore().resetMenuList();
-  }
   NProgress.done();
 });

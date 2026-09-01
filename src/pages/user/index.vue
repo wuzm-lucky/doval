@@ -2,23 +2,35 @@
   <div :class="[`${prefix}-main-wrapper`, 'user-center']">
     <section class="profile-summary">
       <div class="profile-avatar" aria-label="用户头像">
-        王<span class="avatar-edit"><Edit1Icon size="14px" /></span>
+        <img v-if="hasAvatar" :src="avatarPreview" :alt="displayName" @error="avatarFailed = true" />
+        <span v-else>{{ avatarText }}</span>
+        <t-upload
+          v-if="isEdit"
+          v-model="avatarFiles"
+          class="avatar-upload"
+          theme="custom"
+          accept="image/*"
+          :size-limit="{ size: 2, unit: 'MB', message: '图片大小不超过 {sizeLimit} MB' }"
+          :request-method="uploadAvatar"
+          :show-image-file-name="false"
+        >
+          <button class="avatar-edit" type="button" title="上传头像"><Edit1Icon size="14px" /></button>
+        </t-upload>
       </div>
       <div class="profile-content">
         <div class="profile-name-row">
-          <h1>{{ account.nickname }}</h1>
-          <t-tag theme="primary" variant="light" size="small">超级管理员</t-tag>
-          <t-tag theme="success" variant="light" size="small"><span class="tag-dot" />已实名</t-tag>
+          <h1>{{ displayName }}</h1>
         </div>
         <div class="profile-meta">
-          <span>@{{ account.username }}</span
-          ><span>UID {{ account.uid }}</span
-          ><span>注册于 {{ account.registerDate }}</span>
+          <span v-if="profile.username">{{ profile.username }}</span
+          ><span>UID {{ profile.id || '-' }}</span>
         </div>
       </div>
-      <t-button class="profile-action" :theme="isEdit ? 'default' : 'primary'" @click="handlePrimaryAction">
-        {{ isEdit ? '保存' : '编辑资料' }}
-      </t-button>
+      <div v-if="isEdit" class="profile-actions">
+        <t-button theme="default" @click="cancelEdit">取消</t-button>
+        <t-button :loading="saving" theme="primary" @click="saveProfile">保存</t-button>
+      </div>
+      <t-button v-else class="profile-action" theme="primary" @click="startEdit">编辑资料</t-button>
     </section>
 
     <section class="user-panel">
@@ -29,11 +41,29 @@
               <div v-for="item in basicFields" :key="item.key" class="info-row">
                 <span class="info-label">{{ item.label }}</span>
                 <div class="info-value">
-                  <t-input v-if="isEditable(item.key) && isEdit" v-model="form[item.key]" size="small" />
-                  <t-tag v-else-if="item.key === 'status'" theme="success" variant="light" size="small"
-                    ><span class="tag-dot" />正常</t-tag
-                  >
-                  <template v-else>{{ account[item.key] }}</template>
+                  <t-input v-if="isEdit && item.key === 'username'" v-model="form.username" size="small" />
+                  <t-input v-else-if="isEdit && item.key === 'nickname'" v-model="form.nickname" size="small" />
+                  <t-select
+                    v-else-if="isEdit && item.key === 'gender'"
+                    v-model="form.gender"
+                    size="small"
+                    :options="genderOptions"
+                  />
+                  <t-input
+                    v-else-if="isEdit && item.key === 'nation'"
+                    v-model="form.nation"
+                    size="small"
+                    type="number"
+                  />
+                  <t-date-picker
+                    v-else-if="isEdit && item.key === 'birthday'"
+                    v-model="form.birthday"
+                    size="small"
+                    format="YYYY-MM-DD"
+                    value-type="YYYY-MM-DD"
+                  />
+                  <template v-else-if="item.key === 'gender'">{{ genderText }}</template>
+                  <template v-else>{{ profile[item.key] || '-' }}</template>
                 </div>
               </div>
             </div>
@@ -59,8 +89,9 @@
                     :theme="binding.bound ? 'default' : 'primary'"
                     variant="outline"
                     @click="handleBinding(binding)"
-                    >{{ binding.bound ? (binding.canChange ? '更换' : '解绑') : '立即绑定' }}</t-button
                   >
+                    {{ binding.bound ? '更换' : '立即绑定' }}
+                  </t-button>
                 </div>
               </div>
             </div>
@@ -98,124 +129,146 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { ChevronRightIcon, Edit1Icon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 
 import { prefix } from '@/config/global';
+import { downloadUrl, uploadFile } from '@/api/file';
+import { useUserStore } from '@/store';
 
 const activeTab = ref('basic');
+const userStore = useUserStore();
+const profile = computed(() => userStore.userInfo);
 const isEdit = ref(false);
-
-// 当前为静态演示数据，后续接入用户详情接口时只需替换此对象的数据来源。
-const account = reactive({
-  username: 'wangxm',
-  uid: '10086',
-  registerDate: '2023-04-19',
-  nickname: '王晓明',
-  uuid: '7f8a3c2e----a1a7',
-  phone: '138****5678',
-  gender: '男',
-  ethnicity: '汉族',
-  documentType: '居民身份证',
-  status: '正常',
-  email: 'wangxm@kaiyuan.cloud',
-  birthday: '2000-01-01',
-  registerSource: '后台开通',
-  documentNumber: '1101012000********',
+const saving = ref(false);
+const avatarFailed = ref(false);
+const avatarFiles = ref([]);
+const form = reactive({ username: '', nickname: '', avatar: '', gender: null, nation: null, birthday: '' });
+const displayName = computed(() => profile.value.nickname || profile.value.username || '未命名用户');
+const avatarText = computed(() =>
+  (profile.value.nickname || profile.value.username || '用').trim().slice(0, 1).toUpperCase(),
+);
+const avatarPreview = computed(() => {
+  const uploadedAvatar = avatarFiles.value[0]?.url || avatarFiles.value[0]?.thumb;
+  if (uploadedAvatar) {
+    return uploadedAvatar;
+  }
+  const avatar = profile.value.avatar?.trim();
+  if (!avatar) {
+    return '';
+  }
+  return /^https?:\/\//i.test(avatar) ? avatar : downloadUrl(avatar, 'avatar.png');
 });
-const form = reactive({ ...account });
+const hasAvatar = computed(() => Boolean(avatarPreview.value) && !avatarFailed.value);
+const genderText = computed(() => ({ 0: '未知', 1: '男', 2: '女' })[profile.value.gender] || '-');
+const genderOptions = [
+  { label: '男', value: 1 },
+  { label: '女', value: 2 },
+];
 const basicFields = computed(() => [
-  { label: '用户名', key: 'username' },
+  { label: '姓名', key: 'username' },
   { label: '昵称', key: 'nickname' },
-  { label: 'UUID', key: 'uuid' },
-  { label: '状态', key: 'status' },
   { label: '手机号', key: 'phone' },
   { label: '邮箱', key: 'email' },
   { label: '性别', key: 'gender' },
   { label: '出生日期', key: 'birthday' },
-  { label: '民族', key: 'ethnicity' },
-  { label: '注册来源', key: 'registerSource' },
-  { label: '证件类型', key: 'documentType' },
-  { label: '证件号', key: 'documentNumber' },
+  { label: '民族', key: 'nation' },
 ]);
-const bindings = [
+const bindings = computed(() => [
   {
     name: '手机号',
-    description: '用于登录、找回密码，接收验证码',
-    account: '138****5678',
-    bound: true,
-    canChange: true,
+    description: '用于登录、找回密码和接收验证码',
+    account: profile.value.phone || '',
+    bound: Boolean(profile.value.phone),
     icon: '◉',
     type: 'phone',
   },
   {
     name: '电子邮箱',
     description: '用于登录、接收系统通知与安全告警',
-    account: 'wangxm@kaiyuan.cloud',
-    bound: true,
-    canChange: true,
+    account: profile.value.email || '',
+    bound: Boolean(profile.value.email),
     icon: '✉',
     type: 'mail',
   },
-  {
-    name: '微信',
-    description: '扫码快捷登录',
-    account: '晓明很忙',
-    bound: true,
-    canChange: false,
-    icon: '微',
-    type: 'wechat',
-  },
-  { name: 'QQ', description: '网页登录授权登录', account: '', bound: false, canChange: false, icon: 'Q', type: 'qq' },
-  {
-    name: 'GitHub',
-    description: '开发者账号',
-    account: 'wuzm',
-    bound: true,
-    canChange: false,
-    icon: 'G',
-    type: 'github',
-  },
-];
+  { name: '微信', description: '第三方账号绑定功能待接入', account: '', bound: false, icon: '微', type: 'wechat' },
+  { name: 'QQ', description: '第三方账号绑定功能待接入', account: '', bound: false, icon: 'Q', type: 'qq' },
+  { name: 'GitHub', description: '第三方账号绑定功能待接入', account: '', bound: false, icon: 'G', type: 'github' },
+]);
 const securityItems = [
-  {
-    title: '登录密码',
-    description: '上次修改：2026-05-12（108 天前）',
-    icon: '钥',
-    status: '建议更换',
-    statusTheme: 'warning',
-  },
-  { title: '登录设备', description: '3 台设备在线，可下线可疑设备', icon: '机' },
-  {
-    title: '两步验证',
-    description: '登录时需要额外验证，大幅提升安全性',
-    icon: '盾',
-    status: '未开启',
-    statusTheme: 'primary',
-  },
+  { title: '登录密码', description: '密码修改功能待接入', icon: '钥' },
+  { title: '登录设备', description: '登录设备管理功能待接入', icon: '机' },
+  { title: '两步验证', description: '两步验证功能待接入', icon: '盾', status: '未开启', statusTheme: 'primary' },
 ];
-const editableFields = new Set(['nickname', 'gender', 'ethnicity', 'birthday']);
-const isEditable = (key) => editableFields.has(key);
-
-const handlePrimaryAction = () => {
-  if (!isEdit.value) {
-    Object.assign(form, account);
-    isEdit.value = true;
-    return;
-  }
-  // 保存时仅回写允许编辑的字段，系统字段始终保持只读。
-  editableFields.forEach((key) => {
-    account[key] = form[key];
+watch(
+  () => profile.value.avatar,
+  () => {
+    avatarFailed.value = false;
+    avatarFiles.value = [];
+  },
+);
+const startEdit = () => {
+  Object.assign(form, {
+    username: profile.value.username || '',
+    nickname: profile.value.nickname || '',
+    avatar: profile.value.avatar || '',
+    gender: profile.value.gender || null,
+    nation: profile.value.nation || null,
+    birthday: profile.value.birthday || '',
   });
+  isEdit.value = true;
+};
+const cancelEdit = () => {
+  if (form.avatar !== (profile.value.avatar || '')) {
+    avatarFiles.value = [];
+  }
   isEdit.value = false;
-  MessagePlugin.success('资料保存成功');
 };
-const handleBinding = (binding) => {
-  const action = binding.bound ? (binding.canChange ? '更换' : '解绑') : '绑定';
-  MessagePlugin.info(`${action}${binding.name}功能待接入账号验证流程`);
+const saveProfile = async () => {
+  saving.value = true;
+  try {
+    await userStore.updateProfile({
+      username: form.username.trim(),
+      nickname: form.nickname.trim(),
+      avatar: form.avatar,
+      gender: form.gender || null,
+      nation: form.nation === '' || form.nation === null ? null : Number(form.nation),
+      birthday: form.birthday || null,
+    });
+    isEdit.value = false;
+    MessagePlugin.success('资料保存成功');
+  } catch (error) {
+    MessagePlugin.error(error instanceof Error ? error.message : String(error));
+  } finally {
+    saving.value = false;
+  }
 };
+const uploadAvatar = async (file) => {
+  if (!file.raw?.type?.startsWith('image/')) {
+    MessagePlugin.warning('只能上传图片文件');
+    return { status: 'fail' };
+  }
+  try {
+    const uploadedFile = await uploadFile(file.raw, file.name);
+    const avatarUrl = downloadUrl(uploadedFile.uuid, uploadedFile.name || file.name);
+    form.avatar = uploadedFile.uuid;
+    avatarFiles.value = [{ name: uploadedFile.name || file.name, url: avatarUrl, status: 'success' }];
+    avatarFailed.value = false;
+    MessagePlugin.success('头像上传成功，点击保存后生效');
+    return { status: 'success', response: { url: avatarUrl } };
+  } catch (error) {
+    MessagePlugin.error('头像上传失败，请重试');
+    throw error;
+  }
+};
+const handleBinding = (binding) => MessagePlugin.info(`${binding.name}绑定功能待接入账号验证流程`);
 const handleSecurity = (item) => MessagePlugin.info(`${item.title}功能待接入安全设置流程`);
+onMounted(async () => {
+  if (userStore.accessToken && !profile.value.id) {
+    await userStore.getUserInfo();
+  }
+});
 </script>
 
 <style scoped lang="less">
@@ -258,6 +311,12 @@ const handleSecurity = (item) => MessagePlugin.info(`${item.title}功能待接�
   color: #fff;
   font-size: 35px;
 }
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
 .avatar-edit {
   position: absolute;
   right: -2px;
@@ -271,6 +330,10 @@ const handleSecurity = (item) => MessagePlugin.info(`${item.title}功能待接�
   border-radius: 50%;
   background: #fff;
   color: #6b7d91;
+  padding: 0;
+}
+.avatar-edit:hover {
+  color: #1769bd;
 }
 .profile-content {
   margin-left: 20px;
@@ -299,6 +362,11 @@ const handleSecurity = (item) => MessagePlugin.info(`${item.title}功能待接�
   font-size: 15px;
 }
 .profile-action {
+  margin-left: auto;
+}
+.profile-actions {
+  display: flex;
+  gap: 12px;
   margin-left: auto;
 }
 .tag-dot {
