@@ -2,7 +2,7 @@ import { request } from '@framework/utils/request';
 
 const prefix = '/base';
 const DictApi = {
-  PageList: `${prefix}/dict/pagelist`,
+  List: `${prefix}/dict/list`,
   Create: `${prefix}/dict/create`,
   Update: `${prefix}/dict/update`,
   Get: `${prefix}/dict/get/`,
@@ -11,14 +11,19 @@ const DictApi = {
 };
 
 const DictItemApi = {
-  ListByDictCode: `${prefix}/dictItem/list/dictCode`,
+  PageList: `${prefix}/dictItem/pagelist`,
   Create: `${prefix}/dictItem/create`,
   Update: `${prefix}/dictItem/update`,
   Delete: `${prefix}/dictItem/delete/`,
 };
 
-export function pageList(params) {
-  return request.post({ url: DictApi.PageList, params });
+/**
+ * 查询字典列表，用于构建字典树及按编码、名称筛选。
+ *
+ * @param {{ codeRLike?: string, nameLike?: string }} data 查询条件
+ */
+export function list(data) {
+  return request.post({ url: DictApi.List, data });
 }
 export function create(data) {
   return request.post({ url: DictApi.Create, data });
@@ -35,8 +40,14 @@ export function getDetail(id) {
 export function del(id) {
   return request.delete({ url: `${DictApi.Delete}${id}` });
 }
-export function listItems(data) {
-  return request.post({ url: DictItemApi.ListByDictCode, data });
+/**
+ * 分页查询指定字典的字典项。
+ *
+ * @param {{ dictId?: number, nameLike?: string, group?: string }} data 查询条件
+ * @param {{ page?: number, size?: number }} params 分页参数
+ */
+export function pageListItems(data, params) {
+  return request.post({ url: DictItemApi.PageList, data, params });
 }
 export function createItem(data) {
   return request.post({ url: DictItemApi.Create, data });

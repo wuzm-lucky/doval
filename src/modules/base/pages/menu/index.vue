@@ -1,6 +1,6 @@
 <template>
   <div :class="prefix + '-main-wrapper'">
-    <div class="container">
+    <div ref="containerRef" class="container">
       <t-row class="header" justify="space-between"
         ><t-button @click="openForm()">新增</t-button
         ><t-space
@@ -10,6 +10,8 @@
           ><t-button theme="default" @click="onReset">重置</t-button></t-space
         ></t-row
       ><t-enhanced-table
+        ref="tableRef"
+        :max-height="tableMaxHeight || undefined"
         :data="data"
         :columns="columns"
         row-key="id"
@@ -37,7 +39,7 @@
 <script setup>
 import { SearchIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
-import { onMounted, ref } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { create, del, listTopTowLevel, pageList, update } from '@base/api/menu';
 import { prefix } from '@framework/config/global';
 import { useLocale } from '@framework/locales/useLocale';
@@ -61,6 +63,18 @@ const pagination = ref({ ...defaultPage });
 const loading = ref(false);
 const formVisible = ref(false);
 const formData = ref({ ...defaultForm });
+const containerRef = ref();
+const tableRef = ref();
+const tableMaxHeight = ref(0);
+let containerResizeObserver;
+
+/** 根据表格距视口底部的可用空间设置最大高度，使超长数据在表体内滚动。 */
+const updateTableMaxHeight = () => {
+  const tableElement = tableRef.value?.$el;
+  if (!tableElement) return;
+  const tableTop = tableElement.getBoundingClientRect().top;
+  tableMaxHeight.value = Math.max(window.innerHeight - tableTop - 24, 240);
+};
 /**
  * 根据当前语言读取菜单标题，缺少对应翻译时统一回退中文标题。
  *
@@ -133,10 +147,19 @@ const handleDelete = async (row) => {
 onMounted(() => {
   fetchData();
   fetchTree();
+  nextTick(() => {
+    updateTableMaxHeight();
+    containerResizeObserver = new ResizeObserver(updateTableMaxHeight);
+    if (containerRef.value) containerResizeObserver.observe(containerRef.value);
+  });
 });
+onBeforeUnmount(() => containerResizeObserver?.disconnect());
 </script>
 <style lang="less" scoped>
 .container {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   padding: var(--td-comp-paddingTB-xl) var(--td-comp-paddingLR-xl);
 }
 .header {

@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia';
 
 import { store } from '@framework/store';
+import { HOME_ROUTE_PATH } from '@framework/utils/route/constant';
 
 const homeRoute = [
   {
-    path: '/home',
+    path: HOME_ROUTE_PATH,
     routeIdx: 0,
     title: { zh_CN: '首页', en_US: 'Home' },
     name: 'MainHome',

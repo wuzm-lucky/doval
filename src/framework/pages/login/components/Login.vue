@@ -87,6 +87,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { useCounter } from '@framework/hooks';
 import { t } from '@framework/locales';
+import { HOME_ROUTE_PATH } from '@framework/utils/route/constant';
 import { sendMessageVerificationCode, verifyMessageVerificationCode } from '@framework/api/auth';
 import { useUserStore } from '@framework/store';
 
@@ -175,7 +176,7 @@ const onSubmit = async (ctx) => {
 
     MessagePlugin.success(t('pages.login.loginSuccess'));
     const redirect = route.query.redirect;
-    const redirectUrl = redirect ? decodeURIComponent(redirect) : '/home';
+    const redirectUrl = redirect ? decodeURIComponent(redirect) : HOME_ROUTE_PATH;
     router.push(redirectUrl);
   } catch (error) {
     MessagePlugin.error(error instanceof Error ? error.message : String(error));

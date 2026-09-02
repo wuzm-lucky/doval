@@ -2,7 +2,7 @@
   <div :class="layoutCls">
     <t-head-menu :class="menuCls" :theme="menuTheme" expand-type="popup" :value="active">
       <template #logo>
-        <span v-if="showLogo" class="header-logo-container" @click="handleNav('/dashboard/base')">
+        <span v-if="showLogo" class="header-logo-container" @click="handleNav(HOME_ROUTE_PATH)">
           <logo-full class="t-logo" />
         </span>
         <div v-else class="header-operate-left">
@@ -60,6 +60,7 @@ import { prefix } from '@framework/config/global';
 import { t } from '@framework/locales';
 import { getActive } from '@framework/router';
 import { getMenuStore, useSettingStore, useUserStore } from '@framework/store';
+import { HOME_ROUTE_PATH } from '@framework/utils/route/constant';
 
 import MenuContent from './MenuContent.vue';
 import Notice from './Notice.vue';

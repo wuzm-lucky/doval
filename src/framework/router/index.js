@@ -4,7 +4,7 @@ import { getModuleRoutes } from '@framework/bootstrap/modules.js';
 import homepageRoutes from '@framework/router/modules/homepage.js';
 import resultRoutes from '@framework/router/modules/result.js';
 import userRoutes from '@framework/router/modules/user.js';
-import { PAGE_NOT_FOUND_ROUTE } from '@framework/utils/route/constant.js';
+import { HOME_ROUTE_PATH, PAGE_NOT_FOUND_ROUTE } from '@framework/utils/route/constant.js';
 
 const env = import.meta.env.MODE || 'development';
 
@@ -21,7 +21,7 @@ const frameworkRoutes = [
   },
   {
     path: '/',
-    redirect: '/home',
+    redirect: HOME_ROUTE_PATH,
   },
   PAGE_NOT_FOUND_ROUTE,
 ];
