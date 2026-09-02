@@ -17,6 +17,9 @@
         :pagination="pagination"
         :tree="treeConfig"
         @page-change="onPageChange"
+        ><template #menuTitle="{ row }">{{ getMenuTitle(row.title) }}</template
+        ><template #icon="{ row }"
+          ><t-tooltip v-if="row.icon" :content="row.icon"><t-icon :name="row.icon" size="18px" /></t-tooltip></template
         ><template #op="{ row }"
           ><t-space
             ><t-link theme="primary" @click="openChildForm(row)">添加子菜单</t-link
@@ -28,69 +31,29 @@
         ></t-enhanced-table
       >
     </div>
-    <t-dialog
-      v-model:visible="formVisible"
-      :header="formData.id ? '编辑菜单' : '新增菜单'"
-      :footer="false"
-      :width="720"
-      destroy-on-close
-      ><t-form :data="formData" :rules="rules" label-width="100px" @submit="handleSubmit"
-        ><t-row :gutter="[16, 0]"
-          ><t-col :span="6"
-            ><t-form-item label="名称" name="name"><t-input v-model="formData.name" /></t-form-item></t-col
-          ><t-col :span="6"
-            ><t-form-item label="标题" name="title"><t-input v-model="formData.title" /></t-form-item></t-col
-          ><t-col :span="6"
-            ><t-form-item label="父级菜单" name="pid"
-              ><t-tree-select
-                v-model="formData.pid"
-                :data="menuTree"
-                clearable
-                :keys="{ label: 'title', value: 'id', children: 'children' }" /></t-form-item></t-col
-          ><t-col :span="6"
-            ><t-form-item label="图标" name="icon"><t-input v-model="formData.icon" /></t-form-item></t-col
-          ><t-col :span="6"
-            ><t-form-item label="组件类型" name="component"
-              ><t-select v-model="formData.component"
-                ><t-option label="Layout" value="Layout" /><t-option
-                  label="IFrame"
-                  value="IFrame" /></t-select></t-form-item></t-col
-          ><t-col :span="6"
-            ><t-form-item label="组件地址" name="uri"><t-input v-model="formData.uri" /></t-form-item></t-col></t-row
-        ><t-form-item
-          ><t-space
-            ><t-button theme="primary" type="submit">保存</t-button
-            ><t-button theme="default" @click="formVisible = false">取消</t-button></t-space
-          ></t-form-item
-        ></t-form
-      ></t-dialog
-    >
+    <menu-form v-model:visible="formVisible" :data="formData" :menu-tree="menuTree" @submit="handleSubmit" />
   </div>
 </template>
 <script setup>
 import { SearchIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { onMounted, ref } from 'vue';
-import { create, del, pageList, treeList, update } from '@base/api/menu';
+import { create, del, listTopTowLevel, pageList, update } from '@base/api/menu';
 import { prefix } from '@framework/config/global';
+import { useLocale } from '@framework/locales/useLocale';
 import { normalizePage } from '@framework/utils/page';
+import MenuForm from './components/MenuForm.vue';
 const columns = [
   { title: '名称', colKey: 'name', width: 160 },
-  { title: '标题', colKey: 'title', width: 180 },
-  { title: '父级', colKey: 'pid', width: 100 },
-  { title: '组件类型', colKey: 'component', width: 120 },
-  { title: '组件地址', colKey: 'uri', ellipsis: true },
+  { title: '标题', colKey: 'menuTitle', width: 180 },
+  { title: '地址', colKey: 'path', ellipsis: true },
   { title: '图标', colKey: 'icon', width: 120 },
   { title: '操作', colKey: 'op', fixed: 'right', width: 220 },
 ];
+const { locale } = useLocale();
 const treeConfig = { childrenKey: 'children', defaultExpandAll: false, treeNodeColumnIndex: 0 };
-const rules = {
-  name: [{ required: true, message: '请输入名称', type: 'error' }],
-  component: [{ required: true, message: '请选择组件类型', type: 'error' }],
-  uri: [{ required: true, message: '请输入组件地址', type: 'error' }],
-};
 const defaultPage = { current: 1, pageSize: 20, total: 0 };
-const defaultForm = { name: '', title: '', pid: undefined, icon: '', component: 'Layout', uri: '' };
+const defaultForm = { name: '', title: {}, pid: undefined, icon: '', path: '' };
 const query = ref({ searchKey: '' });
 const data = ref([]);
 const menuTree = ref([]);
@@ -98,8 +61,17 @@ const pagination = ref({ ...defaultPage });
 const loading = ref(false);
 const formVisible = ref(false);
 const formData = ref({ ...defaultForm });
+/**
+ * 根据当前语言读取菜单标题，缺少对应翻译时统一回退中文标题。
+ *
+ * @author wuzm
+ */
+const getMenuTitle = (title) => {
+  if (typeof title === 'string') return title;
+  return title?.[locale.value] || title?.zh_CN || '';
+};
 const fetchTree = async () => {
-  menuTree.value = await treeList();
+  menuTree.value = await listTopTowLevel();
 };
 const fetchData = async () => {
   loading.value = true;
@@ -134,9 +106,16 @@ const openChildForm = async (row) => {
   formData.value = { ...defaultForm, pid: row.id };
   formVisible.value = true;
 };
-const handleSubmit = async ({ validateResult }) => {
-  if (validateResult !== true) return;
-  const payload = { ...formData.value };
+const handleSubmit = async (form) => {
+  // 按 MenuDto 组装提交数据，避免将列表树的 children、索引等展示字段提交到服务端。@author wuzm
+  const payload = {
+    name: form.name,
+    pid: form.pid,
+    icon: form.icon,
+    path: form.path,
+    title: form.title,
+  };
+  if (form.id) payload.id = form.id;
   if (!payload.pid) delete payload.pid;
   if (payload.id) await update(payload);
   else await create(payload);

@@ -3,6 +3,7 @@ import { request } from '@framework/utils/request';
 const Api = {
   PageList: '/base/menu/pagelist',
   TreeList: '/base/menu/treelist',
+  ListTopTowLevel: '/base/menu/listTopTowLevel',
   Create: '/base/menu/create',
   Update: '/base/menu/update',
   Get: '/base/menu/get/',
@@ -14,6 +15,9 @@ export function pageList(data, params) {
 }
 export function treeList() {
   return request.post({ url: Api.TreeList });
+}
+export function listTopTowLevel() {
+  return request.get({ url: Api.ListTopTowLevel });
 }
 export function create(data) {
   return request.post({ url: Api.Create, data });

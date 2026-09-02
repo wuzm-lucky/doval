@@ -10,14 +10,13 @@ NProgress.configure({ showSpinner: false });
 
 const whiteListRouters = ['/login'];
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to) => {
   NProgress.start();
 
   const userStore = useUserStore();
 
   if (userStore.accessToken) {
     if (to.path === '/login') {
-      next();
       return;
     }
     try {
@@ -25,34 +24,34 @@ router.beforeEach(async (to, _from, next) => {
 
       await getMenuStore().loadMenuList();
       if (router.hasRoute(to.name)) {
-        next();
+        return;
       } else {
-        next(`/`);
+        return '/';
       }
     } catch (error) {
       userStore.clearSession();
       getMenuStore().resetMenuList();
       MessagePlugin.error(error.message || '登录状态已失效');
-      next({
+      NProgress.done();
+      return {
         path: '/login',
         query: { redirect: encodeURIComponent(to.fullPath) },
-      });
-      NProgress.done();
+      };
     }
   } else {
     /* white list router */
+    NProgress.done();
     if (whiteListRouters.includes(to.path)) {
-      next();
+      return;
     } else {
-      next({
+      return {
         path: '/login',
         query: { redirect: encodeURIComponent(to.fullPath) },
-      });
+      };
     }
-    NProgress.done();
   }
 });
 
-router.afterEach((to) => {
+router.afterEach(() => {
   NProgress.done();
 });
