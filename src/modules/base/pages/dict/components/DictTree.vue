@@ -131,10 +131,10 @@ const onActive = (_value, context) => {
   border-radius: 0 var(--td-radius-default) var(--td-radius-default) 0;
 }
 .dict-search :deep(.t-input-adornment__prepend) {
-  flex: 0 0 40%;
+  flex: 0 0 38%;
 }
 .dict-search :deep(.t-input-adornment__append) {
-  flex: 0 0 52px;
+  flex: 0 0 48px;
 }
 .dict-search :deep(.t-input) {
   flex: 1;

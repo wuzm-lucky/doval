@@ -46,10 +46,10 @@ import { useLocale } from '@framework/locales/useLocale';
 import { normalizePage } from '@framework/utils/page';
 import MenuForm from './components/MenuForm.vue';
 const columns = [
-  { title: '名称', colKey: 'name', width: 160 },
-  { title: '标题', colKey: 'menuTitle', width: 180 },
-  { title: '地址', colKey: 'path', ellipsis: true },
-  { title: '图标', colKey: 'icon', width: 120 },
+  { title: '名称', colKey: 'name', width: '15%', ellipsis: true },
+  { title: '标题', colKey: 'menuTitle', width: '20%', ellipsis: true },
+  { title: '地址', colKey: 'path', width: '40%', ellipsis: true },
+  { title: '图标', colKey: 'icon', width: '10%' },
   { title: '操作', colKey: 'op', fixed: 'right', width: 220 },
 ];
 const { locale } = useLocale();

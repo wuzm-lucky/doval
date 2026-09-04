@@ -47,11 +47,11 @@ const props = defineProps({
 });
 const emit = defineEmits(['add', 'edit', 'delete', 'search', 'page-change']);
 const columns = [
-  { title: '识别码', colKey: 'code', width: 160 },
-  { title: '名称', colKey: 'label', width: 160 },
-  { title: '常量值', colKey: 'value', width: 160 },
-  { title: '分组', colKey: 'group', width: 140 },
-  { title: '排序', colKey: 'sort', width: 100 },
+  { title: '识别码', colKey: 'code', width: '20%', ellipsis: true },
+  { title: '名称', colKey: 'label', width: '20%', ellipsis: true },
+  { title: '常量值', colKey: 'value', width: '20%', ellipsis: true },
+  { title: '分组', colKey: 'group', width: '15%', ellipsis: true },
+  { title: '排序', colKey: 'sort', width: '10%' },
   { title: '操作', colKey: 'op', fixed: 'right', width: 140 },
 ];
 const query = ref({ nameLike: '' });
