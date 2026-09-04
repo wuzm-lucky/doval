@@ -49,6 +49,15 @@ function resolveEnabledModules(moduleNames) {
   return modules;
 }
 
+/** 解析行为验证码构建参数，命令行参数优先于 .env 配置。 */
+function resolveCaptchaEnable(mode) {
+  const values = process.argv.filter((argument) => argument.startsWith('--captchaEnable='));
+  if (values.length > 1) throw new Error('captchaEnable parameter can only be specified once');
+  const value = values[0]?.slice('--captchaEnable='.length) ?? loadEnv(mode, CWD).VITE_CAPTCHA_ENABLE ?? 'true';
+  if (value !== 'true' && value !== 'false') throw new Error('captchaEnable must be true or false');
+  return value;
+}
+
 /**
  * 递归读取模块目录中的指定扩展名文件，并生成稳定的相对路径顺序。
  *
@@ -157,10 +166,13 @@ export default ({ mode }) => {
   const moduleNames = getModuleNames();
   const enabledModules = resolveEnabledModules(moduleNames);
   const { VITE_API_URL, VITE_API_URL_PREFIX, VITE_BASE_URL } = loadEnv(mode, CWD);
+  const captchaEnable = resolveCaptchaEnable(mode);
   console.info(`[doval] 已启用模块：framework, ${enabledModules.join(', ')}`);
   console.info(`[doval] 模块目录：${enabledModules.map((moduleName) => `src/modules/${moduleName}/`).join(', ')}`);
+  console.info(`[doval] 行为验证码：${captchaEnable}`);
 
   return {
+    define: { 'import.meta.env.VITE_CAPTCHA_ENABLE': JSON.stringify(captchaEnable) },
     base: VITE_BASE_URL,
     resolve: {
       alias: {

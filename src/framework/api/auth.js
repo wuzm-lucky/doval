@@ -2,11 +2,13 @@ import { request } from '@framework/utils/request';
 
 const Api = {
   Login: '/auth/login',
+  Register: '/auth/register',
   RefreshToken: '/auth/token/refresh',
   Profile: '/auth/profile',
   Logout: '/auth/logout',
   SendMessageCode: '/auth/verification/message/send',
-  VerifyMessageCode: '/auth/verification/message/verify',
+  CaptchaGet: '/captcha/get',
+  CaptchaCheck: '/captcha/check',
 };
 
 const publicRequestOptions = { withToken: false, skipAuthRefresh: true };
@@ -14,6 +16,11 @@ const publicRequestOptions = { withToken: false, skipAuthRefresh: true };
 /** 使用统一认证接口完成账号、手机号或邮箱登录。 */
 export function loginByAuth(params) {
   return request.post({ url: Api.Login, params }, publicRequestOptions);
+}
+
+/** 使用本地认证标识和密码注册用户。 */
+export function registerByAuth(params) {
+  return request.post({ url: Api.Register, params }, publicRequestOptions);
 }
 
 /** 使用一次性刷新凭据轮换双令牌。 */
@@ -41,7 +48,12 @@ export function sendMessageVerificationCode(params) {
   return request.post({ url: Api.SendMessageCode, params }, publicRequestOptions);
 }
 
-/** 校验消息验证码并获取一次性验证凭据。 */
-export function verifyMessageVerificationCode(params) {
-  return request.post({ url: Api.VerifyMessageCode, params }, publicRequestOptions);
+/** 获取 AJ-Captcha 行为验证码挑战。 */
+export function getCaptcha(params) {
+  return request.post({ url: Api.CaptchaGet, params }, publicRequestOptions);
+}
+
+/** 检查 AJ-Captcha 行为验证码。 */
+export function checkCaptcha(params) {
+  return request.post({ url: Api.CaptchaCheck, params }, publicRequestOptions);
 }

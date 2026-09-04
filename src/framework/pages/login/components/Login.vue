@@ -1,4 +1,10 @@
 <template>
+  <captcha-verify
+    v-if="captchaEnabled"
+    ref="captchaVerify"
+    @success="handleCaptchaSuccess"
+    @cancel="clearCaptchaAction"
+  />
   <t-form
     ref="form"
     class="item-container"
@@ -88,8 +94,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useCounter } from '@framework/hooks';
 import { t } from '@framework/locales';
 import { HOME_ROUTE_PATH } from '@framework/utils/route/constant';
-import { sendMessageVerificationCode, verifyMessageVerificationCode } from '@framework/api/auth';
+import { sendMessageVerificationCode } from '@framework/api/auth';
 import { useUserStore } from '@framework/store';
+import CaptchaVerify from '@framework/components/CaptchaVerify.vue';
 
 const userStore = useUserStore();
 
@@ -114,7 +121,9 @@ const form = ref();
 const formData = ref({ ...INITIAL_DATA });
 const showPsw = ref(false);
 const submitting = ref(false);
-const messageChallengeId = ref('');
+const captchaVerify = ref();
+const captchaEnabled = import.meta.env.VITE_CAPTCHA_ENABLE === 'true';
+const captchaAction = ref();
 
 const [countDown, handleCounter] = useCounter();
 
@@ -125,6 +134,25 @@ const switchType = (val) => {
 const router = useRouter();
 const route = useRoute();
 
+/** 打开验证码前保存待执行动作，验证成功后由组件事件继续当前业务流程。 */
+const openCaptcha = (action) => {
+  if (!captchaEnabled) return action();
+  captchaAction.value = action;
+  captchaVerify.value.open();
+};
+
+/** 验证成功后执行待处理业务动作。 */
+const handleCaptchaSuccess = (captchaVerification) => {
+  const action = captchaAction.value;
+  captchaAction.value = undefined;
+  action?.(captchaVerification);
+};
+
+/** 用户取消验证时丢弃待处理动作，不展示额外提示。 */
+const clearCaptchaAction = () => {
+  captchaAction.value = undefined;
+};
+
 /**
  * 发送验证码
  */
@@ -133,55 +161,59 @@ const sendCode = async () => {
   if (valid !== true) {
     return;
   }
-  try {
-    const challenge = await sendMessageVerificationCode({
-      authType: 'PHONE',
-      identifier: formData.value.phone,
-      scene: 'LOGIN',
-    });
-    messageChallengeId.value = challenge.challengeId;
-    handleCounter();
-    MessagePlugin.success('验证码已发送');
-  } catch (error) {
-    MessagePlugin.error(error instanceof Error ? error.message : String(error));
-  }
+  const requestCode = async (captchaVerification) => {
+    try {
+      await sendMessageVerificationCode({
+        authType: 'PHONE',
+        identifier: formData.value.phone,
+        scene: 'login',
+        captchaVerification,
+      });
+      handleCounter();
+      MessagePlugin.success('验证码已发送');
+    } catch (error) {
+      MessagePlugin.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+  await openCaptcha(requestCode);
 };
 
 const onSubmit = async (ctx) => {
   if (ctx.validateResult !== true) {
     return;
   }
-  submitting.value = true;
-  try {
-    if (type.value === 'password') {
-      await userStore.login({
-        authType: 'ACCOUNT',
-        identifier: formData.value.account,
-        password: formData.value.password,
-      });
-    } else {
-      if (!messageChallengeId.value) {
-        throw new Error('请先发送短信验证码');
+  const login = async (captchaVerification) => {
+    submitting.value = true;
+    try {
+      if (type.value === 'password') {
+        await userStore.login({
+          authType: 'ACCOUNT',
+          identifier: formData.value.account,
+          credential: formData.value.password,
+          captchaVerification,
+        });
+      } else {
+        await userStore.login({
+          authType: 'PHONECODE',
+          identifier: formData.value.phone,
+          credential: formData.value.verifyCode,
+        });
       }
-      const verificationTicket = await verifyMessageVerificationCode({
-        authType: 'PHONE',
-        identifier: formData.value.phone,
-        scene: 'LOGIN',
-        challengeId: messageChallengeId.value,
-        code: formData.value.verifyCode,
-      });
-      await userStore.login({ authType: 'PHONECODE', identifier: formData.value.phone, verificationTicket });
-      messageChallengeId.value = '';
-    }
 
-    MessagePlugin.success(t('pages.login.loginSuccess'));
-    const redirect = route.query.redirect;
-    const redirectUrl = redirect ? decodeURIComponent(redirect) : HOME_ROUTE_PATH;
-    router.push(redirectUrl);
-  } catch (error) {
-    MessagePlugin.error(error instanceof Error ? error.message : String(error));
-  } finally {
-    submitting.value = false;
+      MessagePlugin.success(t('pages.login.loginSuccess'));
+      const redirect = route.query.redirect;
+      const redirectUrl = redirect ? decodeURIComponent(redirect) : HOME_ROUTE_PATH;
+      router.push(redirectUrl);
+    } catch (error) {
+      MessagePlugin.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      submitting.value = false;
+    }
+  };
+  if (type.value === 'password') {
+    await openCaptcha(login);
+  } else {
+    await login();
   }
 };
 </script>
