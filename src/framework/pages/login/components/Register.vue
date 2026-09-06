@@ -90,9 +90,9 @@
     </t-form-item>
 
     <div class="switch-container">
-      <span class="tip" @click="switchType(type === 'phone' ? 'email' : 'phone')">
+      <button type="button" class="tip register-switch-button" @click="switchType(type === 'phone' ? 'email' : 'phone')">
         {{ type === 'phone' ? t('pages.login.register.useEmailRegister') : t('pages.login.register.usePhoneRegister') }}
-      </span>
+      </button>
     </div>
   </t-form>
 </template>

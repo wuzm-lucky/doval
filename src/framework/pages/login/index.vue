@@ -8,9 +8,9 @@
         <h1 class="title">{{ t('common.appName') }}</h1>
         <div class="sub-title">
           <p class="tip">{{ type === 'register' ? t('pages.login.existAccount') : t('pages.login.noAccount') }}</p>
-          <p class="tip" @click="switchType(type === 'register' ? 'login' : 'register')">
+          <button type="button" class="tip login-switch-button" @click="switchType(type === 'register' ? 'login' : 'register')">
             {{ type === 'register' ? t('pages.login.signIn') : t('pages.login.createAccount') }}
-          </p>
+          </button>
         </div>
       </div>
 
