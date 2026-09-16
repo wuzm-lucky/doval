@@ -133,6 +133,19 @@ npm run build -- --modules=base,web3
 
 空模块名、重复模块名或未知模块名会使启动和构建失败。遗漏业务模块导致运行时组件不可用时，请人工将所需模块加入 `--modules` 后重新构建。
 
+### 有钱记个人配置
+
+使用 `npm run dev -- --modules=base,youqianji` 启用模块，生产构建使用 `npm run build -- --modules=base,youqianji`。
+若访问时找不到页面，先确认当前开发服务的启动输出包含 `youqianji`。默认 `npm run dev` 仅加载 `base`；需要停止原服务并使用上述参数重新启动，仅刷新浏览器不会启用模块。
+访问 `/youqianji/userconfig` 会进入 `/youqianji/userconfig/index`；侧栏菜单由服务端维护，菜单地址可使用该入口。
+页面位于 `src/modules/youqianji/pages/userconfig/index.vue`，独立接口文件位于 `src/modules/youqianji/api/userconfig.js`。
+
+页面调用 `GET /youqianji/userconfig/get` 回填本人配置，通过 `POST /youqianji/userconfig/save` 保存。
+请求体仅包含 `currency`，清空选择时提交 `null` 恢复默认；未保存记录按未设置处理，不在加载时创建记录。
+币种选项与后端 `Currency` 枚举保持一致，后端增减币种时须同步页面选项。加载失败支持重试且禁止保存，保存失败保留输入，撤销修改恢复最近一次成功加载或保存的值。
+
+开发约定：业务页面按目录组织，接口放在模块内独立文件；个人配置不得提交用户主键或审计字段。验证时覆盖未设置、已有配置、清空保存以及请求失败场景。
+
 ### 代码格式
 
 提交前建议执行：
