@@ -1,43 +1,48 @@
 <template>
   <div :class="prefix + '-main-wrapper'">
     <div class="container">
-      <t-row class="header" justify="space-between"
-        ><t-button @click="openUpload">上传文件</t-button
-        ><t-space
-          ><t-input v-model="query.searchKey" placeholder="文件名" clearable
-            ><template #suffix-icon><search-icon size="16px" /></template></t-input
-          ><t-button theme="primary" @click="onSearch">查询</t-button
-          ><t-button theme="default" @click="onReset">重置</t-button></t-space
-        ></t-row
-      ><t-table
+      <t-row class="header" justify="space-between">
+        <t-button @click="openUpload">上传文件</t-button>
+        <t-space>
+          <t-input v-model="query.searchKey" placeholder="文件名" clearable>
+            <template #suffix-icon><search-icon size="16px" /></template>
+          </t-input>
+          <t-button theme="primary" @click="onSearch">查询</t-button>
+          <t-button theme="default" @click="onReset">重置</t-button>
+        </t-space>
+      </t-row>
+      <t-table
         :data="data"
         :columns="columns"
         row-key="id"
         :pagination="pagination"
         :loading="loading"
         @page-change="onPageChange"
-        ><template #size="{ row }">{{ formatSize(row.size) }}</template
-        ><template #name="{ row }"
-          ><t-space align="center" size="small" class="file-name"
-            ><component :is="getFileIcon(row)" size="18px" /><span class="file-name-text">{{ row.name }}</span></t-space
-          ></template
-        ><template #op="{ row }"
-          ><t-link theme="primary" :href="downloadUrl(row.uuid, row.name)" target="_blank">下载</t-link></template
-        ></t-table
       >
+        <template #size="{ row }">{{ formatSize(row.size) }}</template>
+        <template #name="{ row }">
+          <t-space align="center" size="small" class="file-name">
+            <component :is="getFileIcon(row)" size="18px" />
+            <span class="file-name-text">{{ row.name }}</span>
+          </t-space>
+        </template>
+        <template #op="{ row }">
+          <t-link theme="primary" :href="downloadUrl(row.uuid, row.name)" target="_blank">下载</t-link>
+        </template>
+      </t-table>
     </div>
-    <t-dialog v-model:visible="uploadVisible" header="上传文件" :footer="false" :width="520" destroy-on-close
-      ><t-form label-width="90px" @submit="handleUpload"
-        ><t-form-item label="文件名"><t-input v-model="uploadName" placeholder="不填则使用原文件名" /></t-form-item
-        ><t-form-item label="文件"><input type="file" @change="handleFileChange" /></t-form-item
-        ><t-form-item
-          ><t-space
-            ><t-button theme="primary" type="submit" :loading="uploading">上传</t-button
-            ><t-button theme="default" @click="uploadVisible = false">取消</t-button></t-space
-          ></t-form-item
-        ></t-form
-      ></t-dialog
-    >
+    <t-dialog v-model:visible="uploadVisible" header="上传文件" :footer="false" :width="520" destroy-on-close>
+      <t-form label-width="90px" @submit="handleUpload">
+        <t-form-item label="文件名"><t-input v-model="uploadName" placeholder="不填则使用原文件名" /></t-form-item>
+        <t-form-item label="文件"><input type="file" @change="handleFileChange" /></t-form-item>
+        <t-form-item>
+          <t-space>
+            <t-button theme="primary" type="submit" :loading="uploading">上传</t-button>
+            <t-button theme="default" @click="uploadVisible = false">取消</t-button>
+          </t-space>
+        </t-form-item>
+      </t-form>
+    </t-dialog>
   </div>
 </template>
 <script setup>

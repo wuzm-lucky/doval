@@ -1,31 +1,33 @@
 <template>
   <div :class="prefix + '-main-wrapper'">
-    <section class="user-config">
-      <div class="user-config__actions">
+    <div class="container">
+      <t-row class="header" justify="end">
         <t-space v-if="editing">
-          <t-button variant="outline" :disabled="saving" @click="cancelEdit">取消</t-button>
           <t-button theme="primary" :loading="saving" @click="save">保存</t-button>
+          <t-button variant="outline" :disabled="saving" @click="cancelEdit">取消</t-button>
         </t-space>
         <t-button v-else :disabled="loading" @click="startEdit">编辑</t-button>
-      </div>
-
-      <t-loading v-if="loading" :loading="true" size="small" />
-      <div v-else class="user-config__row">
-        <div class="user-config__info">
-          <div class="user-config__label">币种</div>
-          <div class="user-config__description">用于资产、账单等页面的金额展示，清空选择并保存即可恢复默认币种。</div>
+      </t-row>
+      <t-loading :loading="loading" size="small">
+        <div class="body">
+          <t-row class="config_row" justify="space-between">
+            <div class="config_info">
+              <div class="config_label">币种</div>
+              <div class="config_description">用于资产、账单等页面的金额展示。</div>
+            </div>
+            <t-select
+              v-model="form.currency"
+              class="config_select"
+              :options="currencyOptions"
+              :disabled="!editing || saving"
+              clearable
+              filterable
+              placeholder="默认币种"
+            />
+          </t-row>
         </div>
-        <t-select
-          v-model="form.currency"
-          class="user-config__select"
-          :options="currencyOptions"
-          :disabled="!editing || saving"
-          clearable
-          filterable
-          placeholder="默认币种"
-        />
-      </div>
-    </section>
+      </t-loading>
+    </div>
   </div>
 </template>
 
@@ -113,47 +115,42 @@ onMounted(load);
 </script>
 
 <style lang="less" scoped>
-.user-config {
+.container {
   padding: var(--td-comp-paddingTB-xl) var(--td-comp-paddingLR-xl);
-}
+  .header {
+    margin-bottom: var(--td-comp-margin-l);
+  }
 
-.user-config__actions {
-  display: flex;
-  justify-content: flex-end;
-  min-height: var(--td-comp-size-m);
-  margin-bottom: var(--td-comp-margin-l);
-}
+  .body {
+    align-items: flex-start;
+    width: 100%;
+    .config_row {
+      gap: var(--td-comp-margin-xxl);
+      padding: var(--td-comp-paddingTB-l) 0;
+      .config_info {
+        min-width: 0;
+      }
 
-.user-config__row {
-  display: flex;
-  align-items: flex-start;
-  width: 100%;
-  gap: var(--td-comp-margin-xxl);
-  padding: var(--td-comp-paddingTB-l) 0;
-}
+      .config_label {
+        color: var(--td-text-color-primary);
+        font: var(--td-font-body-large);
+      }
 
-.user-config__row + .user-config__row {
-  border-top: 1px solid var(--td-text-color-placeholder);
-}
+      .config_description {
+        margin-top: var(--td-comp-margin-xs);
+        color: var(--td-text-color-placeholder);
+        font: var(--td-font-body-small);
+      }
 
-.user-config__info {
-  min-width: 0;
-}
-
-.user-config__label {
-  color: var(--td-text-color-primary);
-  font: var(--td-font-body-large);
-}
-
-.user-config__description {
-  margin-top: var(--td-comp-margin-xs);
-  color: var(--td-text-color-placeholder);
-  font: var(--td-font-body-small);
-}
-
-.user-config__select {
-  width: 320px;
-  flex: none;
-  margin-left: auto;
+      .config_select {
+        width: 320px;
+        flex: none;
+        margin-left: auto;
+      }
+    }
+    .config_row + .config_row {
+      border-top: 1px solid var(--td-text-color-placeholder);
+    }
+  }
 }
 </style>

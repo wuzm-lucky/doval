@@ -1,15 +1,17 @@
 <template>
   <div :class="prefix + '-main-wrapper'">
     <div ref="containerRef" class="container">
-      <t-row class="header" justify="space-between"
-        ><t-button @click="openForm()">新增</t-button
-        ><t-space
-          ><t-input v-model="query.searchKey" placeholder="名称/标题/地址" clearable
-            ><template #suffix-icon><search-icon size="16px" /></template></t-input
-          ><t-button theme="primary" @click="onSearch">查询</t-button
-          ><t-button theme="default" @click="onReset">重置</t-button></t-space
-        ></t-row
-      ><t-enhanced-table
+      <t-row class="header" justify="space-between">
+        <t-button @click="openForm()">新增</t-button>
+        <t-space>
+          <t-input v-model="query.searchKey" placeholder="名称/标题/地址" clearable>
+            <template #suffix-icon><search-icon size="16px" /></template>
+          </t-input>
+          <t-button theme="primary" @click="onSearch">查询</t-button>
+          <t-button theme="default" @click="onReset">重置</t-button>
+        </t-space>
+      </t-row>
+      <t-enhanced-table
         ref="tableRef"
         :max-height="tableMaxHeight || undefined"
         :data="data"
@@ -19,19 +21,21 @@
         :pagination="pagination"
         :tree="treeConfig"
         @page-change="onPageChange"
-        ><template #menuTitle="{ row }">{{ getMenuTitle(row.title) }}</template
-        ><template #icon="{ row }"
-          ><t-tooltip v-if="row.icon" :content="row.icon"><t-icon :name="row.icon" size="18px" /></t-tooltip></template
-        ><template #op="{ row }"
-          ><t-space
-            ><t-link theme="primary" @click="openChildForm(row)">添加子菜单</t-link
-            ><t-link theme="primary" @click="openForm(row)">编辑</t-link
-            ><t-popconfirm content="确定删除该菜单吗？" @confirm="handleDelete(row)"
-              ><t-link theme="danger">删除</t-link></t-popconfirm
-            ></t-space
-          ></template
-        ></t-enhanced-table
       >
+        <template #menuTitle="{ row }">{{ getMenuTitle(row.title) }}</template>
+        <template #icon="{ row }">
+          <t-tooltip v-if="row.icon" :content="row.icon"><t-icon :name="row.icon" size="18px" /></t-tooltip>
+        </template>
+        <template #op="{ row }">
+          <t-space>
+            <t-link theme="primary" @click="openChildForm(row)">添加子菜单</t-link>
+            <t-link theme="primary" @click="openForm(row)">编辑</t-link>
+            <t-popconfirm content="确定删除该菜单吗？" @confirm="handleDelete(row)">
+              <t-link theme="danger">删除</t-link>
+            </t-popconfirm>
+          </t-space>
+        </template>
+      </t-enhanced-table>
     </div>
     <menu-form v-model:visible="formVisible" :data="formData" :menu-tree="menuTree" @submit="handleSubmit" />
   </div>
@@ -77,8 +81,6 @@ const updateTableMaxHeight = () => {
 };
 /**
  * 根据当前语言读取菜单标题，缺少对应翻译时统一回退中文标题。
- *
- * @author wuzm
  */
 const getMenuTitle = (title) => {
   if (typeof title === 'string') return title;
@@ -121,7 +123,7 @@ const openChildForm = async (row) => {
   formVisible.value = true;
 };
 const handleSubmit = async (form) => {
-  // 按 MenuDto 组装提交数据，避免将列表树的 children、索引等展示字段提交到服务端。@author wuzm
+  // 按 MenuDto 组装提交数据，避免将列表树的 children、索引等展示字段提交到服务端。
   const payload = {
     name: form.name,
     pid: form.pid,

@@ -8,28 +8,32 @@
   >
     <template #body>
       <t-form :data="formData" :rules="rules" :label-width="100" @submit="handleSubmit">
-        <t-form-item label="用户名" name="username"
-          ><t-input v-model="formData.username" :style="fieldStyle"
-        /></t-form-item>
-        <t-form-item label="昵称" name="nickname"
-          ><t-input v-model="formData.nickname" :style="fieldStyle"
-        /></t-form-item>
-        <t-form-item label="手机号" name="phone"><t-input v-model="formData.phone" :style="fieldStyle" /></t-form-item>
-        <t-form-item label="邮箱" name="email"><t-input v-model="formData.email" :style="fieldStyle" /></t-form-item>
+        <t-form-item label="用户名" name="username">
+          <t-input v-model="formData.username" :style="fieldStyle" />
+        </t-form-item>
+        <t-form-item label="昵称" name="nickname">
+          <t-input v-model="formData.nickname" :style="fieldStyle" />
+        </t-form-item>
+        <t-form-item label="手机号" name="phone">
+          <t-input v-model="formData.phone" :style="fieldStyle" />
+        </t-form-item>
+        <t-form-item label="邮箱" name="email">
+          <t-input v-model="formData.email" :style="fieldStyle" />
+        </t-form-item>
         <t-form-item label="性别" name="gender">
-          <t-select v-model="formData.gender" clearable :style="fieldStyle"
-            ><t-option label="男" :value="1" /><t-option label="女" :value="2"
-          /></t-select>
+          <t-select v-model="formData.gender" clearable :style="fieldStyle">
+            <t-option label="男" :value="1" /><t-option label="女" :value="2" />
+          </t-select>
         </t-form-item>
         <t-form-item label="状态" name="status">
-          <t-select v-model="formData.status" :style="fieldStyle"
-            ><t-option label="启用" :value="1" /><t-option label="停用" :value="0"
-          /></t-select>
+          <t-select v-model="formData.status" :style="fieldStyle">
+            <t-option label="启用" :value="1" /><t-option label="停用" :value="0" />
+          </t-select>
         </t-form-item>
-        <t-form-item class="form-actions"
-          ><t-button variant="outline" @click="closeForm">取消</t-button
-          ><t-button theme="primary" type="submit">保存</t-button></t-form-item
-        >
+        <t-form-item class="form-actions">
+          <t-button variant="outline" @click="closeForm">取消</t-button>
+          <t-button theme="primary" type="submit">保存</t-button>
+        </t-form-item>
       </t-form>
     </template>
   </t-dialog>

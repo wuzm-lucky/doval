@@ -21,14 +21,14 @@
         :empty="activeDict ? '暂无字典项数据' : '请先从左侧选择字典'"
         @page-change="$emit('page-change', $event)"
       >
-        <template #op="{ row }"
-          ><t-space
-            ><t-link theme="primary" @click="$emit('edit', row)">编辑</t-link
-            ><t-popconfirm content="确定删除该字典项吗？" @confirm="$emit('delete', row)"
-              ><t-link theme="danger">删除</t-link></t-popconfirm
-            ></t-space
-          ></template
-        >
+        <template #op="{ row }">
+          <t-space>
+            <t-link theme="primary" @click="$emit('edit', row)">编辑</t-link>
+            <t-popconfirm content="确定删除该字典项吗？" @confirm="$emit('delete', row)">
+              <t-link theme="danger">删除</t-link>
+            </t-popconfirm>
+          </t-space>
+        </template>
       </t-table>
     </div>
   </section>
