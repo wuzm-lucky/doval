@@ -36,7 +36,7 @@ import { MessagePlugin } from 'tdesign-vue-next';
 import { onMounted, reactive, ref } from 'vue';
 
 import { prefix } from '@framework/config/global';
-import { getUserConfig, saveUserConfig } from '@youqianji/api/userconfig';
+import { getPersonalConfig, savePersonalConfig } from '@youqianji/api/personalconfig';
 
 const currencyOptions = [
   ['CNY', '人民币'],
@@ -84,7 +84,7 @@ function cancelEdit() {
 async function load() {
   loading.value = true;
   try {
-    const config = await getUserConfig();
+    const config = await getPersonalConfig();
     // 未保存配置或恢复默认后，页面统一按人民币展示。
     savedCurrency.value = config?.currency || 'CNY';
     resetForm();
@@ -100,7 +100,7 @@ async function save() {
   saving.value = true;
   try {
     const currency = form.currency || null;
-    await saveUserConfig({ currency });
+    await savePersonalConfig({ currency });
     savedCurrency.value = currency || 'CNY';
     editing.value = false;
     MessagePlugin.success('个人配置保存成功');
@@ -125,8 +125,15 @@ onMounted(load);
     align-items: flex-start;
     width: 100%;
     .config_row {
+      align-items: center;
       gap: var(--td-comp-margin-xxl);
       padding: var(--td-comp-paddingTB-l) 0;
+      transition: background-color 0.2s linear;
+
+      &:hover {
+        background-color: var(--td-bg-color-container-hover);
+      }
+
       .config_info {
         min-width: 0;
       }
