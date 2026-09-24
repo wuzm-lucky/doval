@@ -1,27 +1,28 @@
 <template>
-  <t-popup expand-animation placement="bottom-right" trigger="click">
+  <t-popup expand-animation placement="bottom-right" trigger="click" @visible-change="handleVisibleChange">
     <template #content>
       <div class="header-msg">
         <div class="header-msg-top">
           <p>{{ t('layout.notice.title') }}</p>
           <t-button
-            v-if="unreadMsg.length > 0"
+            v-if="messages.length > 0"
             class="clear-btn"
             variant="text"
             theme="primary"
-            @click="setRead('all')"
-            >{{ t('layout.notice.clear') }}</t-button
+            :loading="readingAll"
+            @click="markAllRead"
+            >全部已读</t-button
           >
         </div>
-        <t-list v-if="unreadMsg.length > 0" class="narrow-scrollbar" :split="false">
-          <t-list-item v-for="(item, index) in unreadMsg" :key="index">
-            <div>
-              <p class="msg-content">{{ item.content }}</p>
-              <p class="msg-type">{{ item.type }}</p>
+        <t-list v-if="messages.length > 0" class="narrow-scrollbar" :split="false">
+          <t-list-item v-for="item in messages" :key="item.id" @click="goDetail(item.id)">
+            <div class="message-main">
+              <p class="msg-content">{{ item.title }}</p>
+              <p class="msg-type">{{ getTypeLabel(item.type) }}</p>
             </div>
-            <p class="msg-time">{{ item.date }}</p>
+            <p class="msg-time">{{ item.createTime }}</p>
             <template #action>
-              <t-button size="small" variant="outline" @click="setRead('radio', item)">
+              <t-button size="small" variant="outline" @click.stop="markRead(item.id)">
                 {{ t('layout.notice.setRead') }}
               </t-button>
             </template>
@@ -29,17 +30,17 @@
         </t-list>
 
         <div v-else class="empty-list">
-          <img src="https://tdesign.gtimg.com/pro-template/personal/nothing.png" alt="空" />
+          <asset-empty-icon class="empty-icon" />
           <p>{{ t('layout.notice.empty') }}</p>
         </div>
-        <div v-if="unreadMsg.length > 0" class="header-msg-bottom">
-          <t-button class="header-msg-bottom-link" variant="text" theme="default" block @click="goDetail">{{
+        <div v-if="messages.length > 0" class="header-msg-bottom">
+          <t-button class="header-msg-bottom-link" variant="text" theme="default" block @click="goDetail()">{{
             t('layout.notice.viewAll')
           }}</t-button>
         </div>
       </div>
     </template>
-    <t-badge :count="unreadMsg.length" :offset="[4, 4]">
+    <t-badge :count="unreadCount" :offset="[4, 4]">
       <t-button theme="default" shape="square" variant="text">
         <t-icon name="mail" />
       </t-button>
@@ -47,35 +48,61 @@
   </t-popup>
 </template>
 <script setup>
-import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
+import { onMounted, ref } from 'vue';
 
+import { getUnreadCount, pageList, read } from '@framework/api/message';
+import AssetEmptyIcon from '@framework/assets/assets-empty.svg?component';
 import { t } from '@framework/locales';
-import { useNotificationStore } from '@framework/store';
+import { normalizePage } from '@framework/utils/page';
 
 const router = useRouter();
-const store = useNotificationStore();
-const { msgData, unreadMsg } = storeToRefs(store);
+const messages = ref([]);
+const unreadCount = ref(0);
+const readingAll = ref(false);
 
-const setRead = (type, item) => {
-  const changeMsg = msgData.value;
-  if (type === 'all') {
-    changeMsg.forEach((e) => {
-      e.status = false;
-    });
-  } else {
-    changeMsg.forEach((e) => {
-      if (e.id === item?.id) {
-        e.status = false;
-      }
-    });
+const typeLabels = { ANNOUNCEMENT: '系统公告', REMINDER: '提醒', MESSAGE: '消息' };
+
+const getTypeLabel = (type) => typeLabels[type] || type || '消息';
+
+/** 同步通知角标和下拉列表的最新未读消息。 */
+const refreshMessages = async () => {
+  const [count, page] = await Promise.all([getUnreadCount(), pageList({ read: false }, { page: 1, size: 6 })]);
+  unreadCount.value = Number(count) || 0;
+  messages.value = normalizePage(page).rows;
+};
+
+const markRead = async (id) => {
+  await read(id);
+  await refreshMessages();
+};
+
+/** 逐页清理未读消息，适配服务端暂未提供批量已读接口的契约。 */
+const markAllRead = async () => {
+  readingAll.value = true;
+  try {
+    let page;
+    do {
+      page = normalizePage(await pageList({ read: false }, { page: 1, size: 100 }));
+      await Promise.all(page.rows.map((item) => read(item.id)));
+    } while (page.rows.length > 0);
+    await refreshMessages();
+  } finally {
+    readingAll.value = false;
   }
-  store.setMsgData(changeMsg);
 };
 
-const goDetail = () => {
-  router.push('/detail/secondary');
+const handleVisibleChange = (visible) => {
+  if (visible) refreshMessages();
 };
+
+/** 有消息主键时打开该消息详情，否则进入个人消息中心。 */
+const goDetail = (id) => {
+  const query = id ? { id } : undefined;
+  router.push({ path: '/message/index', query });
+};
+
+onMounted(refreshMessages);
 </script>
 <style lang="less" scoped>
 .header-msg {
@@ -88,8 +115,9 @@ const goDetail = () => {
     font: var(--td-font-body-medium);
     color: var(--td-text-color-secondary);
 
-    img {
+    .empty-icon {
       width: var(--td-comp-size-xxxxl);
+      height: var(--td-comp-size-xxxxl);
     }
 
     p {
@@ -186,6 +214,10 @@ const goDetail = () => {
       bottom: var(--td-comp-margin-l);
       color: var(--td-text-color-secondary);
     }
+  }
+
+  .message-main {
+    min-width: 0;
   }
 }
 </style>

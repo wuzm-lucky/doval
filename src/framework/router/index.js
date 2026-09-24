@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import { getModuleRoutes } from '@framework/bootstrap/modules.js';
 import homepageRoutes from '@framework/router/modules/homepage.js';
+import messageRoutes from '@framework/router/modules/message.js';
 import resultRoutes from '@framework/router/modules/result.js';
 import userRoutes from '@framework/router/modules/user.js';
 import { HOME_ROUTE_PATH, PAGE_NOT_FOUND_ROUTE } from '@framework/utils/route/constant.js';
@@ -25,7 +26,14 @@ const frameworkRoutes = [
   },
   PAGE_NOT_FOUND_ROUTE,
 ];
-export const allRoutes = [...homepageRoutes, ...userRoutes, ...resultRoutes, ...frameworkRoutes, ...getModuleRoutes()];
+export const allRoutes = [
+  ...homepageRoutes,
+  ...messageRoutes,
+  ...userRoutes,
+  ...resultRoutes,
+  ...frameworkRoutes,
+  ...getModuleRoutes(),
+];
 
 export const getActive = (maxLevel = 3) => {
   // 非组件内调用必须通过Router实例获取当前路由
