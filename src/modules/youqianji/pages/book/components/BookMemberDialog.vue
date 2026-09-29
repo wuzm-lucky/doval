@@ -44,7 +44,7 @@
 import { MessagePlugin } from 'tdesign-vue-next';
 import { ref, watch } from 'vue';
 
-import { deleteBookMember, getBook, saveBookMember } from '@youqianji/api/book';
+import { deleteBookMember, listBookMember, saveBookMember } from '@youqianji/api/book';
 
 /** 账簿内部成员维护抽屉；成员不对应平台注册账户。 */
 const props = defineProps({
@@ -66,13 +66,12 @@ const loading = ref(false);
 const members = ref([]);
 const formData = ref({ id: undefined, name: '' });
 
-/** 详情接口返回当前有效的账簿内部成员。 */
+/** 成员列表接口返回当前账簿的全部有效内部成员。 */
 const loadMembers = async () => {
   if (!props.bookId) return;
   loading.value = true;
   try {
-    const book = await getBook(props.bookId);
-    members.value = book.memberList || [];
+    members.value = await listBookMember({ bookId: props.bookId });
   } catch (requestError) {
     MessagePlugin.error(requestError.message || '账簿成员加载失败');
   } finally {
@@ -105,7 +104,7 @@ const handleSubmit = async ({ validateResult }) => {
 const removeMember = async (member) => {
   loading.value = true;
   try {
-    await deleteBookMember({ bookId: props.bookId, memberId: member.id });
+    await deleteBookMember(member.id);
     await loadMembers();
     MessagePlugin.success('账簿成员已移除');
   } catch (requestError) {

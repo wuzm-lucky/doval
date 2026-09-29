@@ -146,6 +146,16 @@ npm run build -- --modules=base,web3
 
 开发约定：业务页面按目录组织，接口放在模块内独立文件；个人配置不得提交用户主键或审计字段。验证时覆盖未设置、已有配置、清空保存以及请求失败场景。
 
+### 有钱记账簿
+
+账簿页面位于 `src/modules/youqianji/pages/book/index.vue`，接口集中在 `src/modules/youqianji/api/book.js`。列表仅展示本人账簿，支持名称前缀查询、分页、新增、编辑、显示、隐藏和删除，不再提供账簿成员或共享账户入口。
+
+接口基路径为 `/youqianji/book`：分页使用 `POST /pagelist`，分页参数通过查询参数 `page`、`size` 传递；详情使用 `GET /get/{id}`；新增和编辑分别使用 `POST /create`、`POST /update`；显示、隐藏和删除分别使用 `POST /show/{id}`、`POST /hide/{id}`、`POST /delete/{id}`。
+
+维护约定：保存仅提交 `name`、`cover`、`currency`、`desc`、`defaultAccountId`，编辑时另带 `id`。当前页面不提供默认账户选择，编辑时保留详情中的 `defaultAccountId`，避免后端将遗漏值解释为清空。用户归属、排序与审计信息由后端维护，不再调用成员或用户关联接口，也不依赖旧的 `creator` 标志控制删除入口。
+
+验证账簿改动时使用 `npm run build -- --modules=base,youqianji`，确保业务模块被纳入构建；同时检查创建与编辑分流、路径主键、状态切换、默认账户保留，以及删除分页末条后的回退行为。
+
 ### 代码格式
 
 提交前建议执行：

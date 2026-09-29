@@ -4,7 +4,7 @@
       <t-row class="header" justify="space-between">
         <t-button @click="openForm()">新增</t-button>
         <t-space>
-          <t-input v-model="query.searchKey" placeholder="账簿名称" clearable @enter="onSearch">
+          <t-input v-model="query.searchKey" placeholder="账簿名称前缀" clearable @enter="onSearch" @clear="onSearch">
             <template #suffix-icon><search-icon size="16px" /></template>
           </t-input>
           <t-button theme="primary" @click="onSearch">查询</t-button>
@@ -31,18 +31,11 @@
             {{ row.status === 'SHOW' ? '显示' : '隐藏' }}
           </t-tag>
         </template>
-        <template #creator="{ row }">{{ row.creator ? '是' : '否' }}</template>
         <template #op="{ row }">
           <t-space break-line>
             <t-link theme="primary" @click="openForm(row)">编辑</t-link>
-            <t-link theme="primary" @click="openMembers(row)">账簿成员</t-link>
-            <t-link theme="primary" @click="openShare(row)">共享账户</t-link>
             <t-link theme="primary" @click="toggleStatus(row)">{{ row.status === 'SHOW' ? '隐藏' : '显示' }}</t-link>
-            <t-popconfirm
-              v-if="row.creator"
-              content="删除后所有成员将无法再访问该账簿，确定删除吗？"
-              @confirm="handleDelete(row)"
-            >
+            <t-popconfirm content="确定删除该账簿吗？" @confirm="handleDelete(row)">
               <t-link theme="danger">删除</t-link>
             </t-popconfirm>
           </t-space>
@@ -50,8 +43,6 @@
       </t-table>
     </div>
     <book-form v-model:visible="formVisible" :data="formData" @submit="handleSubmit" />
-    <book-member-dialog v-model:visible="memberVisible" :book-id="selectedBookId" />
-    <book-share-dialog v-model:visible="shareVisible" :book-id="selectedBookId" @changed="fetchData" />
   </div>
 </template>
 
@@ -60,22 +51,19 @@ import { SearchIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { deleteBook, getBook, pageList, saveBook, saveBookRelation } from '@youqianji/api/book';
+import { deleteBook, getBook, hideBook, pageList, saveBook, showBook } from '@youqianji/api/book';
 import { downloadUrl } from '@framework/api/file';
 import { prefix } from '@framework/config/global';
 import { normalizePage } from '@framework/utils/page';
 import BookForm from './components/BookForm.vue';
-import BookMemberDialog from './components/BookMemberDialog.vue';
-import BookShareDialog from './components/BookShareDialog.vue';
 
 const columns = [
   { title: '封面', colKey: 'cover', width: 80 },
-  { title: '账簿名称', colKey: 'name', width: '20%', ellipsis: true },
-  { title: '默认币种', colKey: 'currency', width: '14%', ellipsis: true },
-  { title: '账簿描述', colKey: 'desc', width: '24%', ellipsis: true },
-  { title: '显示状态', colKey: 'status', width: '10%' },
-  { title: '创建人', colKey: 'creator', width: '8%' },
-  { title: '操作', colKey: 'op', fixed: 'right', width: 360 },
+  { title: '账簿名称', colKey: 'name', width: '28%', ellipsis: true },
+  { title: '默认币种', colKey: 'currency', width: '20%', ellipsis: true },
+  { title: '账簿描述', colKey: 'desc', width: '36%', ellipsis: true },
+  { title: '显示状态', colKey: 'status', width: '16%' },
+  { title: '操作', colKey: 'op', fixed: 'right', width: 180 },
 ];
 const currencyLabels = {
   CNY: '人民币',
@@ -100,16 +88,13 @@ const currencyLabels = {
   AED: '阿联酋迪拉姆',
 };
 const defaultPage = { current: 1, pageSize: 20, total: 0 };
-const defaultForm = { name: '', cover: '', currency: 'CNY', desc: '' };
+const defaultForm = { name: '', cover: '', currency: 'CNY', desc: '', defaultAccountId: null };
 const query = ref({ searchKey: '' });
 const data = ref([]);
 const pagination = ref({ ...defaultPage });
 const loading = ref(false);
 const formVisible = ref(false);
-const memberVisible = ref(false);
-const shareVisible = ref(false);
 const formData = ref({ ...defaultForm });
-const selectedBookId = ref();
 const containerRef = ref();
 const tableRef = ref();
 const tableMaxHeight = ref(0);
@@ -150,23 +135,22 @@ const onReset = () => {
 };
 const openForm = async (row) => {
   try {
-    // 编辑时读取详情，避免将列表中仅用于展示的个人偏好字段提交到服务端。
+    // 编辑前读取最新详情，保存时按请求字段白名单提交资料。
     formData.value = row ? await getBook(row.id) : { ...defaultForm };
     formVisible.value = true;
   } catch (requestError) {
     MessagePlugin.error(requestError.message || '账簿详情加载失败');
   }
 };
-const openMembers = (row) => {
-  selectedBookId.value = row.id;
-  memberVisible.value = true;
-};
-const openShare = (row) => {
-  selectedBookId.value = row.id;
-  shareVisible.value = true;
-};
 const handleSubmit = async (form) => {
-  const payload = { name: form.name, cover: form.cover || null, currency: form.currency, desc: form.desc || null };
+  // 默认账户为空会被服务端清空，因此编辑其他资料时必须保留详情中的原值。
+  const payload = {
+    name: form.name.trim(),
+    cover: form.cover || null,
+    currency: form.currency,
+    desc: form.desc || null,
+    defaultAccountId: form.defaultAccountId ?? null,
+  };
   if (form.id) payload.id = form.id;
   try {
     await saveBook(payload);
@@ -179,12 +163,8 @@ const handleSubmit = async (form) => {
 };
 const toggleStatus = async (row) => {
   try {
-    await saveBookRelation({
-      bookId: row.id,
-      defaultAccountId: row.defaultAccountId || null,
-      sort: row.sort,
-      status: row.status === 'SHOW' ? 'HIDE' : 'SHOW',
-    });
+    // 显示状态由账簿接口独立更新，不再提交用户关联和排序信息。
+    await (row.status === 'SHOW' ? hideBook(row.id) : showBook(row.id));
     await fetchData();
     MessagePlugin.success(row.status === 'SHOW' ? '账簿已隐藏' : '账簿已显示');
   } catch (requestError) {
@@ -194,6 +174,8 @@ const toggleStatus = async (row) => {
 const handleDelete = async (row) => {
   try {
     await deleteBook(row.id);
+    // 删除当前页最后一条后回到上一页，避免落在已不存在的空页。
+    if (data.value.length === 1 && pagination.value.current > 1) pagination.value.current -= 1;
     await fetchData();
     MessagePlugin.success('账簿已删除');
   } catch (requestError) {

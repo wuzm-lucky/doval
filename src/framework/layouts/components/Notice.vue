@@ -20,7 +20,7 @@
               <p class="msg-content">{{ item.title }}</p>
               <p class="msg-type">{{ getTypeLabel(item.type) }}</p>
             </div>
-            <p class="msg-time">{{ item.createTime }}</p>
+            <p class="msg-time">{{ formatMessageTime(item.createTime) }}</p>
             <template #action>
               <t-button size="small" variant="outline" @click.stop="markRead(item.id)">
                 {{ t('layout.notice.setRead') }}
@@ -50,6 +50,7 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import { onMounted, ref } from 'vue';
+import dayjs from 'dayjs';
 
 import { getUnreadCount, pageList, read } from '@framework/api/message';
 import AssetEmptyIcon from '@framework/assets/assets-empty.svg?component';
@@ -64,6 +65,14 @@ const readingAll = ref(false);
 const typeLabels = { ANNOUNCEMENT: '系统公告', REMINDER: '提醒', MESSAGE: '消息' };
 
 const getTypeLabel = (type) => typeLabels[type] || type || '消息';
+
+/**
+ * 下拉通知只展示到分钟，保留完整时间精度在接口数据中供消息详情等场景使用。
+ */
+const formatMessageTime = (createTime) => {
+  const time = dayjs(createTime);
+  return time.isValid() ? time.format('YYYY-MM-DD HH:mm') : '';
+};
 
 /** 同步通知角标和下拉列表的最新未读消息。 */
 const refreshMessages = async () => {

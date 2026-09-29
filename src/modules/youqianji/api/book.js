@@ -1,60 +1,53 @@
 import { request } from '@framework/utils/request';
 
 const prefix = '/youqianji/book';
-const memberPrefix = `${prefix}/member`;
-const relationPrefix = `${prefix}/relation`;
 
-/** 分页获取当前登录用户可访问的账簿。 */
+/** 分页获取归属于当前登录用户的账簿，关键词按名称前缀匹配。 */
 export function pageList(data, params) {
   return request.post({ url: `${prefix}/pagelist`, data, params });
 }
 
-/** 获取账簿公共资料、个人偏好和当前有效成员。 */
+/** 查询当前用户可见账簿，供成员管理等需要切换账簿的页面使用。 */
+export function listBook(data) {
+  return request.post({ url: `${prefix}/list`, data });
+}
+
+/** 获取本人账簿详情。 */
 export function getBook(id) {
-  return request.get({ url: `${prefix}/get`, params: { id } });
+  return request.get({ url: `${prefix}/get/${id}` });
 }
 
-/** 创建或更新账簿公共资料。 */
+/** 根据是否有主键分别调用创建、编辑接口。 */
 export function saveBook(data) {
-  return request.post({ url: `${prefix}/save`, data });
+  return request.post({ url: `${prefix}/${data.id == null ? 'create' : 'update'}`, data });
 }
 
-/** 删除由当前用户创建的账簿。 */
+/** 删除本人账簿。 */
 export function deleteBook(id) {
-  return request.post({ url: `${prefix}/delete`, data: { bookId: id } });
+  return request.post({ url: `${prefix}/delete/${id}` });
 }
 
-/** 保存当前用户独立维护的账簿排序、显示状态和默认账户。 */
-export function saveBookRelation(data) {
-  return request.post({ url: `${relationPrefix}/save`, data });
+/** 将本人账簿设为显示状态。 */
+export function showBook(id) {
+  return request.post({ url: `${prefix}/show/${id}` });
 }
 
-/** 新增或更新仅用于交易、账户归属选择的账簿内部成员。 */
+/** 将本人账簿设为隐藏状态。 */
+export function hideBook(id) {
+  return request.post({ url: `${prefix}/hide/${id}` });
+}
+
+/** 按账簿主键与成员名称前缀查询有效成员。 */
+export function listBookMember(data) {
+  return request.post({ url: `${prefix}/member/list`, data });
+}
+
+/** 根据成员主键决定调用新增或编辑接口。 */
 export function saveBookMember(data) {
-  return request.post({ url: `${memberPrefix}/save`, data });
+  return request.post({ url: `${prefix}/member/${data.id == null ? 'create' : 'update'}`, data });
 }
 
-/** 移除账簿内部成员，不影响任何已分享用户。 */
-export function deleteBookMember(data) {
-  return request.post({ url: `${memberPrefix}/delete`, data });
-}
-
-/** 查询账簿全部有效内部成员。 */
-export function listBookMembers(bookId) {
-  return request.get({ url: `${memberPrefix}/list`, params: { bookId } });
-}
-
-/** 邀请已注册用户访问账簿。 */
-export function saveBookShare(data) {
-  return request.post({ url: `${relationPrefix}/share`, data });
-}
-
-/** 查询账簿创建人及已共享账户。 */
-export function listBookShares(bookId) {
-  return request.get({ url: `${relationPrefix}/list`, params: { bookId } });
-}
-
-/** 取消已分享用户的账簿访问权限。 */
-export function deleteBookShare(data) {
-  return request.post({ url: `${relationPrefix}/delete`, data });
+/** 逻辑删除指定账簿成员。 */
+export function deleteBookMember(id) {
+  return request.post({ url: `${prefix}/member/delete/${id}` });
 }
