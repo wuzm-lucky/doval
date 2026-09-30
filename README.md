@@ -101,6 +101,28 @@ import { request } from '@framework/utils/request';
 
 接口请求统一通过 `src/framework/utils/request/` 中的封装发起，框架接口集中在 `src/framework/api/`。业务模块专属接口应放在自身 `api/` 目录中。
 
+### 登录接口约定
+
+- 密码登录调用 `POST /auth/login`，传递 `authType`、`identifier`、`credential` 和行为验证结果 `captchaVerification`。当前账号登录页使用 `ACCOUNT`。
+- 短信验证码登录调用 `POST /auth/login/code`，传递 `authType: 'PHONE'`、`identifier` 和 `code`，不再使用 `PHONECODE` 或 `credential`；邮箱验证码登录尚未开放。
+- 登录短信仍调用 `POST /auth/verification/message/send`，使用 `authType: 'PHONE'` 和 `scene: 'login'`，发送前按现有配置完成行为验证，登录提交时不重复验证。
+- 两种登录方式由 `src/framework/pages/login/auth.js` 共用会话初始化流程，成功后由页面跳转；`userStore` 只管理用户资料，不保存令牌或登录状态。
+- 接口拆分时应同时核对后端 DTO、前端请求方法、会话服务和页面字段，避免只修改地址而遗漏认证类型或验证码字段。
+
+### 无 Cookie 会话管理
+
+登录成功后，可在浏览器开发者工具的 Application → Session Storage → 当前站点 → `doval.session` 查看认证信息；长期客户端标识位于 Local Storage 的 `doval.clientId`。
+
+用户资料和菜单分别通过 Pinia 持久化插件写入 Session Storage 的 `doval.user`（`userInfo`）和 `doval.menu`（`menuList`），便于查看具体内容。加载标记不持久化，刷新页面后仍重新请求最新资料和菜单；退出、会话失效或切换账号时，已有清理方法会将对应缓存重置为空数据。
+
+- `src/framework/store/modules/session.js` 定义 `useSessionStore`，通过 Pinia actions 直接组织浏览器存储，是令牌的唯一存储入口，使用 Session Storage 的 `doval.session` 保存双令牌和绝对到期时间，不维护 Store 或模块级令牌缓存，也不维护独立登录 `status`。不配置令牌 state/getter，并关闭 Store 持久化插件，确保每次 action 读取的都是最新存储值。服务端 `accessTokenExpiresIn`、`refreshTokenExpiresIn` 的单位为秒，写入时转换为毫秒时间戳。
+- `clientId` 首次生成后保存在 Local Storage 的 `doval.clientId`，所有请求通过 `X-Client-Id` 携带，退出和过期不删除它。升级时只迁移旧 `user` 存储项中的客户端标识，然后删除旧项；不迁移旧令牌，用户需要重新登录。
+- 刷新接口 `POST /auth/token/refresh` 按当前 `RefreshTokenDto` 传递 `userId`、`clientId`、`refreshToken`。`userId` 只从 Access Token 的 JWT `sub` 读取为字符串，避免 Java Long 精度损失；前端解析不代表验签或认证通过，最终由服务端校验。
+- 普通请求使用 Bearer 请求头。刷新页面后直接复用未过期 Access Token，仅本地过期或服务端明确拒绝认证时刷新；同一标签页并发请求共用一次刷新，原请求最多因认证问题重试一次。一次性认证接口关闭自动网络重试。
+- 明确的刷新凭据失效会清理会话、资料和菜单；网络故障、服务端暂时异常及普通权限不足保留会话。退出接口需要有效 Access Token，必要时先刷新，退出流程结束后清理当前标签页数据。
+- Session Storage 按标签页隔离，不承诺多标签页会话同步。服务端按用户和浏览器 `clientId` 管理同设备会话，同一浏览器再次登录同一账号会撤销旧凭据；复制标签页产生的旧凭据也可能在其他标签页刷新后失效。
+- 回归验证执行 `node --experimental-vm-modules --test tests/session.test.js`，生产构建执行 `npm run build`。
+
 ### 国际化
 
 框架语言包位于 `src/framework/locales/lang/`，当前提供简体中文与英文。模块语言包由模块入口的 `messages` 声明合并；业务文案必须使用模块名命名空间，例如 `web3.wallet.connect`。

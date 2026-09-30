@@ -1,12 +1,6 @@
 import { defineStore } from 'pinia';
 
-import {
-  getCurrentProfile,
-  loginByAuth,
-  logoutCurrentClient,
-  refreshAuthToken,
-  updateCurrentProfile,
-} from '@framework/api/auth';
+import { getCurrentProfile, updateCurrentProfile } from '@framework/api/auth';
 
 const InitUserInfo = {
   name: '', // 用户名称，用于展示在页面右上角头像处
@@ -16,24 +10,10 @@ const InitUserInfo = {
   roles: [], // 角色信息预留字段，当前不参与路由或菜单控制
 };
 
-/** 生成并长期保存浏览器逻辑客户端标识。 */
-function createClientId() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 export const useUserStore = defineStore('user', {
   state: () => ({
-    accessToken: '',
-    refreshToken: '',
-    clientRecordId: null,
-    accessTokenExpiresIn: null,
-    refreshTokenExpiresIn: null,
-    clientId: createClientId(),
     userInfo: { ...InitUserInfo },
-    // 用户资料不持久化：浏览器刷新后会恢复为 false，并在首次路由导航时重新获取。
+    // 只持久化资料，加载标记刷新后仍为 false，首次导航重新获取最新资料。@author wuzm
     userInfoLoaded: false,
   }),
   getters: {
@@ -42,33 +22,6 @@ export const useUserStore = defineStore('user', {
     },
   },
   actions: {
-    /**
-     * 原子保存后端签发的登录会话信息。
-     *
-     * @param tokenVo 后端 LoginTokenVo 响应
-     */
-    saveSession(tokenVo) {
-      this.accessToken = tokenVo.accessToken;
-      this.refreshToken = tokenVo.refreshToken;
-      this.clientRecordId = tokenVo.clientRecordId;
-      this.accessTokenExpiresIn = tokenVo.accessTokenExpiresIn;
-      this.refreshTokenExpiresIn = tokenVo.refreshTokenExpiresIn;
-    },
-    /** 使用统一认证接口登录，并初始化当前用户资料。 */
-    async login(loginDto) {
-      const tokenVo = await loginByAuth(loginDto);
-      this.saveSession(tokenVo);
-      this.userInfoLoaded = false;
-      await this.getUserInfo();
-    },
-    /** 使用 Refresh Token 刷新会话；刷新凭据为一次性凭据。 */
-    async refreshSession() {
-      if (!this.clientRecordId || !this.refreshToken) {
-        throw new Error('登录已过期');
-      }
-      const tokenVo = await refreshAuthToken({ clientRecordId: this.clientRecordId, refreshToken: this.refreshToken });
-      this.saveSession(tokenVo);
-    },
     async getUserInfo() {
       if (this.userInfoLoaded) {
         return;
@@ -92,36 +45,19 @@ export const useUserStore = defineStore('user', {
       const profile = await updateCurrentProfile(profileDto);
       this.setUserInfo(profile);
     },
-    /** 清理浏览器会话，但保留稳定的客户端标识供下次登录复用。 */
-    clearSession() {
-      this.accessToken = '';
-      this.refreshToken = '';
-      this.clientRecordId = null;
-      this.accessTokenExpiresIn = null;
-      this.refreshTokenExpiresIn = null;
+    /**
+     * 清空当前用户资料，由会话服务在退出或切换账号时调用。
+     * @author wuzm
+     */
+    clearUserInfo() {
       this.userInfo = { ...InitUserInfo };
       this.userInfoLoaded = false;
     },
-    /** 主动退出时通知服务端立即失效当前客户端会话。 */
-    async logout() {
-      try {
-        if (this.accessToken) {
-          await logoutCurrentClient();
-        }
-      } finally {
-        this.clearSession();
-      }
-    },
   },
+  // 方便在浏览器查看用户资料；退出或切换账号时由 clearUserInfo 同步清空。@author wuzm
   persist: {
-    key: 'user',
-    pick: [
-      'accessToken',
-      'refreshToken',
-      'clientRecordId',
-      'accessTokenExpiresIn',
-      'refreshTokenExpiresIn',
-      'clientId',
-    ],
+    key: 'doval.user',
+    storage: sessionStorage,
+    pick: ['userInfo'],
   },
 });

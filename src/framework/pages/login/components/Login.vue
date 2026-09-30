@@ -95,10 +95,8 @@ import { useCounter } from '@framework/hooks';
 import { t } from '@framework/locales';
 import { HOME_ROUTE_PATH } from '@framework/utils/route/constant';
 import { sendMessageVerificationCode } from '@framework/api/auth';
-import { useUserStore } from '@framework/store';
+import * as auth from '@framework/pages/login/auth';
 import CaptchaVerify from '@framework/components/CaptchaVerify.vue';
-
-const userStore = useUserStore();
 
 const INITIAL_DATA = {
   phone: '',
@@ -178,6 +176,10 @@ const sendCode = async () => {
   await openCaptcha(requestCode);
 };
 
+/**
+ * 按登录方式调用独立接口；短信发送时已完成行为验证，验证码登录直接提交。
+ * @author wuzm
+ */
 const onSubmit = async (ctx) => {
   if (ctx.validateResult !== true) {
     return;
@@ -186,17 +188,17 @@ const onSubmit = async (ctx) => {
     submitting.value = true;
     try {
       if (type.value === 'password') {
-        await userStore.login({
+        await auth.login({
           authType: 'ACCOUNT',
           identifier: formData.value.account,
           credential: formData.value.password,
           captchaVerification,
         });
       } else {
-        await userStore.login({
-          authType: 'PHONECODE',
+        await auth.loginByCode({
+          authType: 'PHONE',
           identifier: formData.value.phone,
-          credential: formData.value.verifyCode,
+          code: formData.value.verifyCode,
         });
       }
 

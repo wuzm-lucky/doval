@@ -265,7 +265,7 @@ const uploadAvatar = async (file) => {
 const handleBinding = (binding) => MessagePlugin.info(`${binding.name}绑定功能待接入账号验证流程`);
 const handleSecurity = (item) => MessagePlugin.info(`${item.title}功能待接入安全设置流程`);
 onMounted(async () => {
-  if (userStore.accessToken && !profile.value.id) {
+  if (!userStore.userInfoLoaded) {
     await userStore.getUserInfo();
   }
 });

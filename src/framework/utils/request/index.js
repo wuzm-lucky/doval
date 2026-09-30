@@ -4,14 +4,25 @@ import merge from 'lodash/merge';
 
 import { ContentTypeEnum } from '@framework/constants';
 import router from '@framework/router';
-import { useUserStore } from '@framework/store';
+import { store } from '@framework/store';
+import { clearSession, ensureAccessToken, isSessionInvalid, refreshSession } from '@framework/pages/login/auth';
+import { useSessionStore } from '@framework/store/modules/session';
 
 import { VAxios } from './Axios';
 import { formatRequestDate, joinTimestamp, setObjToUrlParams } from './utils';
 
 const env = import.meta.env.MODE || 'development';
 const appCode = import.meta.env.VITE_APP_CODE || '';
-let refreshPromise = null;
+
+/**
+ * 仅在明确失去会话时回到登录页，保留当前页面作为重新登录后的目标。
+ * @author wuzm
+ */
+function redirectToLogin() {
+  if (router.currentRoute.value.path !== '/login') {
+    router.replace({ path: '/login', query: { redirect: encodeURIComponent(router.currentRoute.value.fullPath) } });
+  }
+}
 
 // 如果是mock模式 或 没启用直连代理 就不配置host 会走本地Mock拦截 或 Vite 代理
 const host = env === 'mock' || import.meta.env.VITE_IS_REQUEST_PROXY !== 'true' ? '' : import.meta.env.VITE_API_URL;
@@ -48,7 +59,7 @@ const transform = {
 
     // 请求失败返回错误信息
     console.error(`请求接口错误: `, code, message, desc);
-    throw new Error(`请求接口错误: ${message} ${desc ? ' : ' + desc : ''}`);
+    throw Object.assign(new Error(`请求接口错误: ${message} ${desc ? ' : ' + desc : ''}`), { code });
   },
 
   // 请求前处理配置
@@ -106,53 +117,69 @@ const transform = {
     return config;
   },
 
-  // 请求拦截器处理
-  requestInterceptors: (config, options) => {
-    // 请求之前处理config
-    const userStore = useUserStore();
-    const { accessToken, clientId } = userStore;
+  // 每次请求直接读取存储中的最新凭据，不在 Store 或请求模块缓存令牌。@author wuzm
+  requestInterceptors: async (config) => {
     config.headers = config.headers || {};
-    config.headers['X-Client-Id'] = clientId;
+    config.headers['X-Client-Id'] = useSessionStore(store).getClientId();
     config.headers['X-Client-Type'] = 'WEB';
     config.headers['X-App'] = appCode;
 
-    if (accessToken && config?.requestOptions?.withToken !== false) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
+    if (config.requestOptions?.withToken !== false) {
+      try {
+        const accessToken = await ensureAccessToken();
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      } catch (error) {
+        if (isSessionInvalid(error) && !useSessionStore(store).readSession()) redirectToLogin();
+        throw error;
+      }
+    } else {
+      delete config.headers.Authorization;
     }
     return config;
   },
 
   // 响应拦截器处理
   responseInterceptors: (res) => {
+    // 服务端业务异常可能通过 HTTP 200 返回，认证错误仍进入统一刷新流程。@author wuzm
+    if (['unauthenticated', 'token_invalid', 'token_expired'].includes(res.data?.code)) {
+      throw Object.assign(new Error(res.data.message || '登录已过期'), {
+        code: res.data.code,
+        config: res.config,
+        response: res,
+      });
+    }
     return res;
   },
 
   // 响应错误处理
-  responseInterceptorsCatch: (error, instance) => {
+  responseInterceptorsCatch: async (error, instance) => {
     const { config } = error;
-    const isUnauthorized = error.response?.status === 401;
-    if (isUnauthorized && config && !config.requestOptions?.skipAuthRefresh && !config.__authRetried) {
-      const userStore = useUserStore();
+    const isUnauthorized = isSessionInvalid(error);
+    if (
+      isUnauthorized &&
+      config &&
+      config.requestOptions?.withToken !== false &&
+      !config.requestOptions?.skipAuthRefresh
+    ) {
+      if (config.__authRetried) {
+        if (config.headers.Authorization === `Bearer ${useSessionStore(store).readSession()?.accessToken}`) {
+          clearSession();
+          redirectToLogin();
+        }
+        throw error;
+      }
       config.__authRetried = true;
-      refreshPromise =
-        refreshPromise ||
-        userStore.refreshSession().finally(() => {
-          refreshPromise = null;
-        });
-      return refreshPromise
-        .then(() => instance.request(config))
-        .catch((refreshError) => {
-          userStore.clearSession();
-          if (router.currentRoute.value.path !== '/login') {
-            router.replace({
-              path: '/login',
-              query: { redirect: encodeURIComponent(router.currentRoute.value.fullPath) },
-            });
-          }
-          return Promise.reject(refreshError);
-        });
+      try {
+        // 较晚返回的旧令牌错误复用已轮换的凭据，避免再次消费刷新令牌。@author wuzm
+        if (config.headers.Authorization === `Bearer ${useSessionStore(store).readSession()?.accessToken}`)
+          await refreshSession();
+      } catch (refreshError) {
+        if (isSessionInvalid(refreshError) && !useSessionStore(store).readSession()) redirectToLogin();
+        throw refreshError;
+      }
+      return instance.request(config);
     }
-    if (!config || !config.requestOptions.retry) return Promise.reject(error);
+    if (isUnauthorized || error.response?.status === 403 || !config || !config.requestOptions?.retry) throw error;
 
     config.retryCount = config.retryCount || 0;
 
@@ -179,8 +206,8 @@ function createAxios(opt) {
         authenticationScheme: '',
         // 超时
         timeout: 10 * 1000,
-        // 携带Cookie
-        withCredentials: true,
+        // 使用 Bearer 认证，不启用跨域 Cookie 凭据。@author wuzm
+        withCredentials: false,
         // 头信息
         headers: { 'Content-Type': ContentTypeEnum.Json },
         // 数据处理方式

@@ -50,6 +50,12 @@ export const useMenuStore = defineStore('menu', {
       this.loaded = false;
     },
   },
+  // 仅保存菜单数据供查看，刷新后仍重新加载；resetMenuList 同步清空持久化内容。@author wuzm
+  persist: {
+    key: 'doval.menu',
+    storage: sessionStorage,
+    pick: ['menuList'],
+  },
 });
 
 export function getMenuStore() {

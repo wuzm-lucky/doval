@@ -59,7 +59,8 @@ import LanguageSwitcher from '@framework/components/LanguageSwitcher.vue';
 import { prefix } from '@framework/config/global';
 import { t } from '@framework/locales';
 import { getActive } from '@framework/router';
-import { getMenuStore, useSettingStore, useUserStore } from '@framework/store';
+import { useSettingStore, useUserStore } from '@framework/store';
+import { logout } from '@framework/pages/login/auth';
 import { HOME_ROUTE_PATH } from '@framework/utils/route/constant';
 
 import MenuContent from './MenuContent.vue';
@@ -132,13 +133,12 @@ const changeCollapsed = () => {
   });
 };
 
+/** 退出由会话服务统一清理凭据和菜单，完成后回到登录页。@author wuzm */
 const handleLogout = async () => {
   try {
-    await user.logout();
+    await logout();
   } catch (_error) {
-    // 本地会话已在 Store 的 finally 中清理，退出后仍应回到登录页。
-  } finally {
-    getMenuStore().resetMenuList();
+    // 本地会话已在会话服务的 finally 中清理，退出后仍应回到登录页。
   }
   router.push({
     path: '/login',
