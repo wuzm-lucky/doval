@@ -4,7 +4,7 @@
       <t-row class="header" justify="space-between">
         <t-button @click="openForm()">新增</t-button>
         <t-space>
-          <t-input v-model="query.searchKey" placeholder="账簿名称前缀" clearable @enter="onSearch" @clear="onSearch">
+          <t-input v-model="query.searchKey" placeholder="请输入关键词" clearable @enter="onSearch" @clear="onSearch">
             <template #suffix-icon><search-icon size="16px" /></template>
           </t-input>
           <t-button theme="primary" @click="onSearch">查询</t-button>
@@ -32,8 +32,9 @@
           </t-tag>
         </template>
         <template #op="{ row }">
-          <t-space break-line>
+          <t-space>
             <t-link theme="primary" @click="openForm(row)">编辑</t-link>
+            <t-link theme="primary" @click="openSettings(row)">账簿设置</t-link>
             <t-link theme="primary" @click="toggleStatus(row)">{{ row.status === 'SHOW' ? '隐藏' : '显示' }}</t-link>
             <t-popconfirm content="确定删除该账簿吗？" @confirm="handleDelete(row)">
               <t-link theme="danger">删除</t-link>
@@ -42,6 +43,7 @@
         </template>
       </t-table>
     </div>
+    <book-settings-drawer v-model:visible="settingsVisible" :book="settingsBook" />
     <book-form v-model:visible="formVisible" :data="formData" @submit="handleSubmit" />
   </div>
 </template>
@@ -56,6 +58,7 @@ import { downloadUrl } from '@framework/api/file';
 import { prefix } from '@framework/config/global';
 import { normalizePage } from '@framework/utils/page';
 import BookForm from './components/BookForm.vue';
+import BookSettingsDrawer from './components/BookSettingsDrawer.vue';
 
 const columns = [
   { title: '封面', colKey: 'cover', width: 80 },
@@ -63,7 +66,7 @@ const columns = [
   { title: '默认币种', colKey: 'currency', width: '20%', ellipsis: true },
   { title: '账簿描述', colKey: 'desc', width: '36%', ellipsis: true },
   { title: '显示状态', colKey: 'status', width: '16%' },
-  { title: '操作', colKey: 'op', fixed: 'right', width: 180 },
+  { title: '操作', colKey: 'op', fixed: 'right', width: 280 },
 ];
 const currencyLabels = {
   CNY: '人民币',
@@ -94,6 +97,13 @@ const data = ref([]);
 const pagination = ref({ ...defaultPage });
 const loading = ref(false);
 const formVisible = ref(false);
+const settingsVisible = ref(false);
+const settingsBook = ref({});
+/** 以列表当前账簿作为设置上下文，所有维护接口固定使用该账簿主键。 @author wuzm */
+const openSettings = (row) => {
+  settingsBook.value = { id: row.id, name: row.name };
+  settingsVisible.value = true;
+};
 const formData = ref({ ...defaultForm });
 const containerRef = ref();
 const tableRef = ref();

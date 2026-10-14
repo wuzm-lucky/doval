@@ -36,18 +36,3 @@ export function showBook(id) {
 export function hideBook(id) {
   return request.post({ url: `${prefix}/hide/${id}` });
 }
-
-/** 按账簿主键与成员名称前缀查询有效成员。 */
-export function listBookMember(data) {
-  return request.post({ url: `${prefix}/member/list`, data });
-}
-
-/** 根据成员主键决定调用新增或编辑接口。 */
-export function saveBookMember(data) {
-  return request.post({ url: `${prefix}/member/${data.id == null ? 'create' : 'update'}`, data });
-}
-
-/** 逻辑删除指定账簿成员。 */
-export function deleteBookMember(id) {
-  return request.post({ url: `${prefix}/member/delete/${id}` });
-}

@@ -170,11 +170,11 @@ npm run build -- --modules=base,web3
 
 ### 有钱记账簿
 
-账簿页面位于 `src/modules/youqianji/pages/book/index.vue`，接口集中在 `src/modules/youqianji/api/book.js`。列表仅展示本人账簿，支持名称前缀查询、分页、新增、编辑、显示、隐藏和删除，不再提供账簿成员或共享账户入口。
+账簿页面位于 `src/modules/youqianji/pages/book/index.vue`，账簿接口位于 `src/modules/youqianji/api/book.js`，成员、标签、类别、商户接口分别位于同目录的 `bookmember.js`、`booktag.js`、`bookcategory.js`、`bookmerchant.js`。列表仅展示本人账簿，支持名称前缀查询、分页、新增、编辑、显示、隐藏和删除，并通过行内「账簿设置」打开成员、标签、类别、商户管理抽屉。
 
 接口基路径为 `/youqianji/book`：分页使用 `POST /pagelist`，分页参数通过查询参数 `page`、`size` 传递；详情使用 `GET /get/{id}`；新增和编辑分别使用 `POST /create`、`POST /update`；显示、隐藏和删除分别使用 `POST /show/{id}`、`POST /hide/{id}`、`POST /delete/{id}`。
 
-维护约定：保存仅提交 `name`、`cover`、`currency`、`desc`、`defaultAccountId`，编辑时另带 `id`。当前页面不提供默认账户选择，编辑时保留详情中的 `defaultAccountId`，避免后端将遗漏值解释为清空。用户归属、排序与审计信息由后端维护，不再调用成员或用户关联接口，也不依赖旧的 `creator` 标志控制删除入口。
+维护约定：保存仅提交 `name`、`cover`、`currency`、`desc`、`defaultAccountId`，编辑时另带 `id`。当前页面不提供默认账户选择，编辑时保留详情中的 `defaultAccountId`，避免后端将遗漏值解释为清空。用户归属、排序与审计信息由后端维护，账簿资料保存不调用成员或用户关联接口，也不依赖旧的 `creator` 标志控制删除入口。
 
 验证账簿改动时使用 `npm run build -- --modules=base,youqianji`，确保业务模块被纳入构建；同时检查创建与编辑分流、路径主键、状态切换、默认账户保留，以及删除分页末条后的回退行为。
 
@@ -205,3 +205,29 @@ npm run build
 ## 浏览器支持
 
 建议使用近两年发布的 Chrome、Edge、Firefox 或 Safari 浏览器访问，以获得完整的现代 Web 能力与最佳体验。
+
+### 账簿成员状态维护
+
+成员是账簿内部交易分类对象，不关联平台注册用户。成员列表不分页，管理场景省略 `status` 返回全部，交易选择场景必须传 `status: 'ACTIVE'`。`ACTIVE` 表示可用，`ARCHIVED` 表示归档；新增默认可用。
+
+名称编辑只提交 `id`、`bookId`、`name`，状态通过 `POST /youqianji/book/member/archive/{id}`、`POST /youqianji/book/member/restore/{id}` 独立修改。归档停止新增选择并保留历史身份，恢复沿用原主键；`delete/{id}` 是物理删除。账簿设置中的成员面板展示状态，编辑、归档或恢复、删除操作直接平铺。
+
+维护检查：确认默认查询同时包含可用和归档成员，状态筛选及重置正确，归档后展示恢复入口，恢复后展示归档入口，失败保留数据并提示错误。账簿设置抽屉沿用该接口约定。记录作者：wuzm。
+
+### 账簿设置抽屉
+
+账簿列表行内「账簿设置」打开 `BookSettingsDrawer.vue`，内部成员、标签、类别、商户四个面板独立实现。成员、标签、商户引用 `framework/components/editable-table/EditableTable.vue`，类别引用 `EditableTreeTable.vue`，基础组件仅管理表格编辑与交互，不包含页头，不调用接口。API 仍按功能分别放在 `bookmember.js`、`booktag.js`、`bookcategory.js`、`bookmerchant.js`。
+
+各业务面板自行维护数据加载、查询和重置、字段白名单转换、接口调用、保存和排序结果处理、归档恢复及离开提醒。查询输入统一提示「请输入关键词」，名称按 `searchKey` 前缀检索，无刷新按钮，无分页。新增空行追加到当前列表末尾，子类别追加到所属父级子列表末尾并自动展开父级。编辑副本由组件维护，取消不改变原数据，失败保留输入，成功由面板调用 `finishEdit()` 并重新加载。
+
+类别使用 EnhancedTable 原生树能力，加减方框展开、收起；收支用填充式单选按钮切换。检索时并行获取匹配项及完整方向列表，保留命中项及祖先，业务校验依据完整数据。仅一级类别提供添加子类别；归档影响子树，恢复需祖先可用，含子级节点禁止删除。检索期间禁止拖动，正常情况下仅允许同父级移动，服务端移动整棵子树。父级和所有子级拖动手柄统一位于行首排序列，名称列使用原生树形缩进与展开收起图标。
+
+四个表格统一使用 `MoveIcon` 拖动手柄，向前提交 `where=1`，向后提交 `where=-1`。成员、标签、商户分别调用 `/member/sort`、`/tag/sort`、`/merchant/sort`，类别调用 `/category/move`。接口操作留在各面板中，基础组件只发出 TDesign 拖动上下文，失败不改变原顺序。商户以商家、单位、个人、其他按钮分组，新增带入当前 `subjectType`，编辑保留原类型，排序不能跨组。
+
+标签和类别颜色通过 ColorPicker 编辑，限制不透明单色 HEX，保存转大写，清空提交 null；展示态为不可交互的色块和编码，无边框、阴影及悬浮灰底，并与颜色表头左侧对齐。归档行内容灰化。类别图标沿用菜单图标选择网格，支持搜索、清空和分批渲染。
+
+基础组件的属性、插槽、事件及实例方法见 `src/framework/components/editable-table/README.md`。四个业务面板各自维护 scoped Less 样式，仅保留实际使用的规则；编辑状态与拖动手柄样式由基础组件负责。构建验证使用 `npm run build -- --modules=base,youqianji`。维护作者：wuzm。
+
+账簿设置采用操作列统一进入行编辑，名称和说明列设置 `edit.showEditIcon: false` 隐藏原生单元格编辑提示，基础表格保留 TDesign 默认配置能力。维护作者：wuzm。
+
+可编辑表格运行时只保留 `EditableTable.vue` 和 `EditableTreeTable.vue` 两个组件，通用编辑及平面数据投影位于前者，后者负责原生 EnhancedTable 适配、递归数据投影、父级上下文、展开状态及树形拖动；不再拆分 Core 组件或独立数据工具文件。测试与使用文档继续保留。维护作者：wuzm。
