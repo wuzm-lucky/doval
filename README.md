@@ -271,3 +271,21 @@ base 的用户列表及表单使用 user.userstatus，性别选项使用 user.ge
 选项直接使用字典 options，币种名称加编码时用 computed 派生副本；状态展示使用 getLabel，操作判断及默认值继续使用后端业务值。新增行的“待保存”、归档恢复确认提示和操作完成消息属于页面交互文案。菜单语言列表继续取框架实际支持的语言包，图标列表来自图标库，不与通用字典混用。维护作者：wuzm。
 
 有钱记相对移动 API 统一使用 moveBook、moveBookMember、moveBookMerchant、moveBookTag、moveBookCategory 命名，页面处理函数为 moveRows，移动状态为 moving，类别同级移动校验为 canMove。表格原生 drag-sort、before-drag-sort 事件与属性及服务端 sort 排序查询字段继续使用原契约。维护作者：wuzm。
+
+### 平台管理
+
+平台入口为 `/youqianji/platform`，跳转到 `/youqianji/platform/index`，服务端侧栏菜单地址可使用该入口。开发与构建需启用 `base,youqianji` 模块。页面位于 `src/modules/youqianji/pages/platform/index.vue`，接口封装位于 `src/modules/youqianji/api/platform.js`。维护作者：wuzm。
+
+接口基路径为 `/youqianji/account/platform`，通过 `POST /list` 查询本人全部平台，`searchKey` 按名称前缀匹配，服务端返回完整排序列表，因此页面不添加服务端未提供的分页参数。支持新增、读取详情后编辑、删除确认和拖动排序；平台没有余额或归档状态。名称必填且最多 100 字符，图标使用 TDesign 内置编码，支持搜索、预览、清空。描述使用后端字段 `desc`，选填且最多 500 字符，列表省略展示长文本，编辑时从详情回填。保存时仅提交名称、分类、图标、描述及编辑主键，清空图标或描述显式提交 `null`。维护作者：wuzm。
+
+排序调用 `POST /move`，提交 `id`、`targetId`、`where`，向上为 1，向下为 -1。筛选生效、详情弹窗打开、列表加载失败或请求执行期间禁止开始拖动。树表通过 `beforeDragSort` 阻止内部交换，接口成功后按目标前后位置调整完整平面数据，失败保留原序；不能用仅包含可见行的 `newData` 覆盖全量平台。查询条件使用已提交值，避免仅修改输入框就改变排序限制。长列表按实际容器高度在表体内部滚动；请求串行执行，页面销毁后忽略响应。验证命令为 `npx prettier --check src/modules/youqianji/api/platform.js src/modules/youqianji/router/modules/platform.js src/modules/youqianji/pages/platform/index.vue README.md` 和 `npm run build -- --modules=base,youqianji`。维护作者：wuzm。
+
+平台新增与编辑弹窗统一位于 `src/modules/youqianji/pages/platform/components/PlatformForm.vue`，参照 `BookForm.vue` 使用 `visible`、`data` 属性及 `update:visible`、`submit` 事件；表单组件维护编辑副本、校验、图标选项和操作样式，父页面负责详情读取、白名单请求与列表刷新，通过 `busy` 传递保存状态。维护作者：wuzm。
+
+平台图标选择沿用菜单表单的图标网格、编码搜索与选中预览，首次渲染 120 项，滚动到底部分批加载；下拉层使用独立的 `platform-icon-select` 样式，关闭弹层或表单时清理滚动监听并重置搜索。维护作者：wuzm。
+
+平台分类字段为 `category`，列表名称及表单、查询选项统一读取 `youqianji.platformcategory`（沿用当前服务端实际编码）。新增默认 `OTHER`，编辑回填原分类并随白名单提交；查询未选分类时省略 `category` 表示全部，重置同时清空名称与分类。任一筛选生效时禁用拖动，避免依据部分列表调整全局顺序。维护作者：wuzm。
+
+平台列表使用 `t-enhanced-table` 按分类分组，分类顺序来自字典，组内保留接口顺序，分类行显示名称与匹配平台数量，只展示非空分组。分类节点使用 `category:` 前缀主键，与平台主键分离；默认展开，允许独立收起，查询或重置后展开结果分组，保存、删除和排序保留现有收起状态。分类节点无编辑、删除及拖动入口，跨分类和以分类节点为目标的拖动在发出请求前拦截，修改分类通过表单完成。分组与排序逻辑统一维护在平台页面 `index.vue` 内，测试从页面编译 AST 提取实际函数执行，回归检查执行 `node --test tests/platform-grouping.test.mjs`，覆盖字典顺序、空分组、字典未加载、跨组拦截、双向移动及保留完整数据。维护作者：wuzm。
+
+BookMerchant 与 Platform 的描述字段统一使用 `desc`，表格列、表单绑定、新增默认值和保存白名单必须保持同名；描述选填且最多 500 字符，清空提交 `null`。页面文案统一为“描述”，详情直接按新字段回填。维护作者：wuzm。

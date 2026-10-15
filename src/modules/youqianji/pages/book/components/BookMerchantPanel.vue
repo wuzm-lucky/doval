@@ -151,14 +151,14 @@ const onReset = () =>
     loadRows();
   });
 /** 外部新增按钮只提供业务默认字段，末行插入及输入聚焦交由表格完成。  */
-const addRow = () => tableRef.value?.addRow({ name: '', subjectType: subjectType.value, description: '' });
+const addRow = () => tableRef.value?.addRow({ name: '', subjectType: subjectType.value, desc: '' });
 /** 保存仅提交白名单字段；成功后退出编辑，失败保留输入。  */
 const saveRow = async ({ row, isNew }) => {
   const payload = {
     bookId: props.bookId,
     name: row.name.trim(),
     subjectType: row.subjectType,
-    description: row.description?.trim() || null,
+    desc: row.desc?.trim() || null,
   };
   if (!isNew) payload.id = row.id;
   busy.value = true;
@@ -226,10 +226,10 @@ const columns = [
     },
   },
   {
-    title: '说明',
-    colKey: 'description',
+    title: '描述',
+    colKey: 'desc',
     width: 220,
-    edit: { showEditIcon: false, component: Input, props: { maxlength: 500, placeholder: '说明，可留空' } },
+    edit: { showEditIcon: false, component: Input, props: { maxlength: 500, placeholder: '描述，可留空' } },
   },
   { title: '状态', colKey: 'status', width: 90 },
   { title: '操作', colKey: 'op', width: 210, fixed: 'right' },
