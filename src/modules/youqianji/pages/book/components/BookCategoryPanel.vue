@@ -60,12 +60,13 @@
           <t-option v-for="item in iconOptions" :key="item.stem" :value="item.stem" :label="item.stem">
             <t-icon :name="item.stem" />
           </t-option>
-          <template #valueDisplay
-            ><t-icon v-if="draft.icon" :name="draft.icon" /><span>{{ draft.icon }}</span></template
-          >
+          <template #valueDisplay>
+            <t-icon v-if="draft.icon" :name="draft.icon" />
+            <span>{{ draft.icon }}</span>
+          </template>
         </t-select>
-        <t-tooltip v-else-if="row.icon" :content="row.icon"><t-icon :name="row.icon" size="20px" /></t-tooltip
-        ><span v-else>—</span>
+        <t-tooltip v-else-if="row.icon" :content="row.icon"><t-icon :name="row.icon" size="20px" /> </t-tooltip>
+        <span v-else>—</span>
       </template>
       <template #color="{ row, draft, editing }">
         <t-color-picker
@@ -111,18 +112,19 @@
           v-if="row.status === 'ACTIVE'"
           content="归档当前类别及全部子类别，历史身份保留，确定归档吗？"
           @confirm="changeStatus('archive', row)"
-          ><t-link theme="primary" :disabled="locked">归档</t-link></t-popconfirm
         >
+          <t-link theme="primary" :disabled="locked">归档</t-link>
+        </t-popconfirm>
         <t-link
           v-else-if="row.status === 'ARCHIVED'"
           theme="primary"
           :disabled="locked || !canRestore(row)"
           @click="changeStatus('restore', row)"
-          >恢复</t-link
-        >
-        <t-popconfirm content="确定永久删除吗？如需保留历史身份，请使用归档。" @confirm="changeStatus('delete', row)"
-          ><t-link theme="danger" :disabled="locked || hasChildren(row)">删除</t-link></t-popconfirm
-        >
+          >恢复
+        </t-link>
+        <t-popconfirm content="确定永久删除吗？如需保留历史身份，请使用归档。" @confirm="changeStatus('delete', row)">
+          <t-link theme="danger" :disabled="locked || hasChildren(row)">删除</t-link>
+        </t-popconfirm>
       </template>
     </editable-tree-table>
     <div class="hint">
@@ -353,8 +355,6 @@ const iconOptions = computed(() => {
 });
 /**
  * 根据输入内容筛选图标，限制渲染数量以避免展开下拉框时创建大量节点。
- *
- *
  */
 const searchIcons = (keyword) => {
   iconKeyword.value = keyword;

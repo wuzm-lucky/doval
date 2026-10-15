@@ -17,10 +17,12 @@
     @drag-sort="handleDragSort"
   >
     <template v-for="name in forwardedSlots" :key="name" #[name]="scope"><slot :name="name" v-bind="scope" /></template>
-    <template #treeExpandAndFoldIcon="scope"
-      ><slot name="treeExpandAndFoldIcon" v-bind="scope"
-        ><minus-rectangle-icon v-if="scope.type === 'fold'" /><add-rectangle-icon v-else /></slot
-    ></template>
+    <template #treeExpandAndFoldIcon="scope">
+      <slot name="treeExpandAndFoldIcon" v-bind="scope">
+        <minus-rectangle-icon v-if="scope.type === 'fold'" />
+        <add-rectangle-icon v-else />
+      </slot>
+    </template>
   </editable-table>
 </template>
 <script setup>
@@ -32,7 +34,7 @@ import EditableTable from './EditableTable.vue';
 
 const { cloneDeep, get } = lodash;
 defineOptions({ inheritAttrs: false });
-/** 树增强层负责嵌套数据、节点新增、展开状态和拖动适配，通用编辑交给普通组件。 @author wuzm */
+/** 树增强层负责嵌套数据、节点新增、展开状态和拖动适配，通用编辑交给普通组件。 */
 const props = defineProps({
   data: { type: Array, default: () => [] },
   rowKey: { type: String, default: 'id' },
@@ -49,7 +51,7 @@ const slots = useSlots();
 const childrenKey = computed(() => props.tree.childrenKey || 'children');
 const treeConfig = computed(() => ({ treeNodeColumnIndex: props.draggable ? 1 : 0, ...props.tree }));
 const forwardedSlots = computed(() => Object.keys(slots).filter((name) => name !== 'treeExpandAndFoldIcon'));
-/** 树查找局限于增强层，支持调用方指定主键路径和子字段。 @author wuzm */
+/** 树查找局限于增强层，支持调用方指定主键路径和子字段。 */
 const findRow = (data, key) => {
   for (const row of data) {
     if (String(get(row, props.rowKey)) === String(key)) return row;
@@ -57,7 +59,7 @@ const findRow = (data, key) => {
     if (child) return child;
   }
 };
-/** 将编辑副本适配为嵌套数据，父子新增均追加末尾且不改变受控源数据。 @author wuzm */
+/** 将编辑副本适配为嵌套数据，父子新增均追加末尾且不改变受控源数据。 */
 const adaptTreeData = (data, row, { isNew }) => {
   const result = cloneDeep(data);
   if (!row) return result;
@@ -72,7 +74,7 @@ const adaptTreeData = (data, row, { isNew }) => {
   }
   return result;
 };
-/** 子级新增时由增强层维护父级上下文并展开父级，校验及聚焦复用普通组件。 @author wuzm */
+/** 子级新增时由增强层维护父级上下文并展开父级，校验及聚焦复用普通组件。 */
 const addRow = (defaults = {}, parent = null) => {
   if (editableRef.value?.isPending() || draft.value || (parent != null && !findRow(props.data, parent))) return false;
   parentKey.value = parent;
@@ -89,7 +91,7 @@ const startEdit = (row) => {
   return editableRef.value?.startEdit(row);
 };
 const handleSave = (context) => emit('save', { ...context, parentKey: context.isNew ? parentKey.value : null });
-/** 保留 EnhancedTable 事件形状；受控模式阻止内部交换，等待业务持久化后回填。 @author wuzm */
+/** 保留 EnhancedTable 事件形状；受控模式阻止内部交换，等待业务持久化后回填。 */
 const handleBeforeDragSort = (context) => {
   if (editableRef.value?.locked || props.beforeDragSort?.(context) === false) return false;
   emit('drag-sort', context);
@@ -103,7 +105,7 @@ const handleExpandedChange = (keys, context) => {
   emit('update:expandedTreeNodes', keys);
   emit('expanded-tree-nodes-change', keys, context);
 };
-// EnhancedTable 自行同步 data，外层禁止重复 resetData，避免异步展开覆盖可见子行。作者：wuzm。
+// EnhancedTable 自行同步 data，外层禁止重复 resetData，避免异步展开覆盖可见子行。
 defineExpose({
   startEdit,
   addRow,

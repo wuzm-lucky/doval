@@ -15,11 +15,11 @@
       @row-edit="handleRowEdit"
       @drag-sort="handleDragSort"
     >
-      <template v-for="name in forwardedSlots" :key="name" #[name]="scope"
-        ><slot :name="name" v-bind="slotContext(scope)"
-      /></template>
+      <template v-for="name in forwardedSlots" :key="name" #[name]="scope">
+        <slot :name="name" v-bind="slotContext(scope)" />
+      </template>
       <template #drag="scope">
-        <!-- 自定义插槽即使为空也应保持为空，避免子行的条件插槽触发默认手柄。@author wuzm -->
+        <!-- 自定义插槽即使为空也应保持为空，避免子行的条件插槽触发默认手柄。 -->
         <slot v-if="slots.drag" name="drag" v-bind="slotContext(scope)" />
         <move-icon
           v-else
@@ -31,15 +31,16 @@
       <template #op="scope">
         <slot name="op" v-bind="slotContext(scope)">
           <div class="editable-table__actions">
-            <template v-if="isEditing(scope.row)"
-              ><t-link theme="primary" :disabled="loading || validating" @click="save">保存</t-link
-              ><t-link :disabled="loading || validating" @click="cancel">取消</t-link></template
+            <template v-if="isEditing(scope.row)">
+              <t-link theme="primary" :disabled="loading || validating" @click="save">保存</t-link>
+              <t-link :disabled="loading || validating" @click="cancel">取消</t-link></template
             >
-            <template v-else
-              ><t-link theme="primary" :disabled="locked || !canEdit(scope.row)" @click="startEdit(scope.row)"
-                >编辑</t-link
-              ><slot name="row-actions" v-bind="slotContext(scope)"
-            /></template>
+            <template v-else>
+              <t-link theme="primary" :disabled="locked || !canEdit(scope.row)" @click="startEdit(scope.row)">
+                编辑
+              </t-link>
+              <slot name="row-actions" v-bind="slotContext(scope)" />
+            </template>
           </div>
         </slot>
       </template>
@@ -56,7 +57,7 @@ import { MoveIcon } from 'tdesign-icons-vue-next';
 
 const { cloneDeep, get, set } = lodash;
 
-/** 普通表格只处理当前列表的副本替换与末行新增，不递归处理子数据。 @author wuzm */
+/** 普通表格只处理当前列表的副本替换与末行新增，不递归处理子数据。 */
 function createTableData(data, draft, { rowKey = 'id', isNew = false } = {}) {
   const result = cloneDeep(data);
   if (!draft) return result;
@@ -69,7 +70,7 @@ function createTableData(data, draft, { rowKey = 'id', isNew = false } = {}) {
 }
 
 defineOptions({ inheritAttrs: false });
-/** 普通可编辑表格提供通用编辑能力，增强层可适配渲染组件和数据，不包含树形业务。 @author wuzm */
+/** 普通可编辑表格提供通用编辑能力，增强层可适配渲染组件和数据，不包含树形业务。 */
 const props = defineProps({
   data: { type: Array, default: () => [] },
   columns: { type: Array, default: () => [] },
@@ -148,7 +149,7 @@ const slotContext = (scope) => ({
   save,
   cancel,
 });
-/** 新增和编辑统一复制数据；嵌套字段取消编辑后也不会污染原记录。 @author wuzm */
+/** 新增和编辑统一复制数据；嵌套字段取消编辑后也不会污染原记录。 */
 const startEdit = (row) => {
   if (locked.value || !props.canEdit(row)) return false;
   original.value = cloneDeep(row);
@@ -167,7 +168,7 @@ const addRow = (defaults = {}) => {
   editingRow.value = row;
   nextTick(() => {
     if (!containerRef.value || disposed) return;
-    // 等待底层组件的异步渲染，再滚动并聚焦新增编辑行。作者：wuzm。
+    // 等待底层组件的异步渲染，再滚动并聚焦新增编辑行。
     focusFrame = requestAnimationFrame(() => {
       if (disposed) return;
       const input = containerRef.value?.querySelector('input:not([readonly])');
@@ -177,13 +178,13 @@ const addRow = (defaults = {}) => {
   });
   return true;
 };
-/** 原生列编辑事件只更新副本，业务保存时获得完整记录。 @author wuzm */
+/** 原生列编辑事件只更新副本，业务保存时获得完整记录。 */
 const handleRowEdit = (context) => {
   if (!editingRow.value || props.loading || !isEditing(context.row)) return;
   set(editingRow.value, context.col.colKey, context.value);
   emit('row-edit', { ...context, editedRow: cloneDeep(editingRow.value) });
 };
-/** 先执行 TDesign 行校验再执行扩展校验，组件仅发出保存事件，由业务决定提交结果。 @author wuzm */
+/** 先执行 TDesign 行校验再执行扩展校验，组件仅发出保存事件，由业务决定提交结果。 */
 const validateRow = async () => {
   if (!editingRow.value) return false;
   const result = await tableRef.value?.validateRowData?.(get(editingRow.value, props.rowKey));
@@ -212,7 +213,7 @@ const save = async () => {
     if (!disposed) validating.value = false;
   }
 };
-/** 业务确认提交成功后主动结束编辑，失败时仅设置错误保留输入。 @author wuzm */
+/** 业务确认提交成功后主动结束编辑，失败时仅设置错误保留输入。 */
 const finishEdit = () => {
   editingRow.value = null;
   original.value = null;
@@ -228,7 +229,7 @@ const cancel = () => {
 const setError = (message) => {
   error.value = message;
 };
-/** 拖动只从手柄触发，不修改受控 data；增强层自行适配特殊数据及事件。 @author wuzm */
+/** 拖动只从手柄触发，不修改受控 data；增强层自行适配特殊数据及事件。 */
 const dragOptions = {
   filter: (event) => {
     if (locked.value || !event.target.closest('.editable-table__handle')) return true;
@@ -251,7 +252,7 @@ const handleDragSort = (context) => {
     return;
   emit('drag-sort', context);
 };
-/** 保留原生 rowAttributes，内部仅追加手柄定位所需的主键。 @author wuzm */
+/** 保留原生 rowAttributes，内部仅追加手柄定位所需的主键。 */
 const rowAttributes = (context) => {
   const source = attrs.rowAttributes || attrs['row-attributes'];
   const values = (Array.isArray(source) ? source : [source]).map((item) =>
@@ -259,7 +260,7 @@ const rowAttributes = (context) => {
   );
   return Object.assign({}, ...values, { 'data-editable-key': String(get(context.row, props.rowKey)) });
 };
-/** 表格高度跟随容器，基础组件不包含业务页头或任何查询控件。 @author wuzm */
+/** 表格高度跟随容器，基础组件不包含业务页头或任何查询控件。 */
 onMounted(() => {
   observer = new ResizeObserver(() => {
     availableHeight.value = Math.max(containerRef.value?.clientHeight || 0, 180);

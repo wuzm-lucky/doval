@@ -2,9 +2,9 @@
   <div class="panel">
     <t-space>
       <t-radio-group :value="subjectType" variant="default-filled" :disabled="busy" @change="switchSubject">
-        <t-radio-button v-for="option in subjectOptions" :key="option.value" :value="option.value">{{
-          option.label
-        }}</t-radio-button>
+        <t-radio-button v-for="option in subjectOptions" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </t-radio-button>
       </t-radio-group>
     </t-space>
     <t-row class="toolbar" justify="space-between">
@@ -39,9 +39,9 @@
       @drag-sort="sortRows"
     >
       <template #status="{ row }">
-        <t-tag :theme="row.status === 'ACTIVE' ? 'success' : 'default'" variant="light">{{
-          row.status === 'ACTIVE' ? '可用' : row.status === 'ARCHIVED' ? '归档' : '待保存'
-        }}</t-tag>
+        <t-tag :theme="row.status === 'ACTIVE' ? 'success' : 'default'" variant="light">
+          {{ row.status === 'ACTIVE' ? '可用' : row.status === 'ARCHIVED' ? '归档' : '待保存' }}
+        </t-tag>
       </template>
       <template #row-actions="{ row, locked }">
         <t-popconfirm
@@ -57,9 +57,9 @@
           @click="changeStatus('restore', row)"
           >恢复</t-link
         >
-        <t-popconfirm content="确定永久删除吗？如需保留历史身份，请使用归档。" @confirm="changeStatus('delete', row)"
-          ><t-link theme="danger" :disabled="locked">删除</t-link></t-popconfirm
-        >
+        <t-popconfirm content="确定永久删除吗？如需保留历史身份，请使用归档。" @confirm="changeStatus('delete', row)">
+          <t-link theme="danger" :disabled="locked">删除</t-link>
+        </t-popconfirm>
       </template>
     </editable-table>
   </div>

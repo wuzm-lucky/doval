@@ -8,9 +8,9 @@
     @close="requestClose"
   >
     <div class="settings">
-      <t-tabs :value="activeTab" @change="switchTab"
-        ><t-tab-panel v-for="tab in tabs" :key="tab.value" :value="tab.value" :label="tab.label"
-      /></t-tabs>
+      <t-tabs :value="activeTab" @change="switchTab">
+        <t-tab-panel v-for="tab in tabs" :key="tab.value" :value="tab.value" :label="tab.label" />
+      </t-tabs>
       <component
         :is="panels[activeTab]"
         v-if="visible && book.id"

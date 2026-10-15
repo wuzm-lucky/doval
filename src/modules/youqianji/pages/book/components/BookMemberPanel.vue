@@ -32,27 +32,29 @@
       @drag-sort="sortRows"
     >
       <template #status="{ row }">
-        <t-tag :theme="row.status === 'ACTIVE' ? 'success' : 'default'" variant="light">{{
-          row.status === 'ACTIVE' ? '可用' : row.status === 'ARCHIVED' ? '归档' : '待保存'
-        }}</t-tag>
+        <t-tag :theme="row.status === 'ACTIVE' ? 'success' : 'default'" variant="light">
+          {{ row.status === 'ACTIVE' ? '可用' : row.status === 'ARCHIVED' ? '归档' : '待保存' }}
+        </t-tag>
       </template>
       <template #row-actions="{ row, locked }">
         <t-popconfirm
           v-if="row.status === 'ACTIVE'"
           content="归档后停止新增选择，历史身份保留，确定归档吗？"
           @confirm="changeStatus('archive', row)"
-          ><t-link theme="primary" :disabled="locked">归档</t-link></t-popconfirm
         >
+          <t-link theme="primary" :disabled="locked">归档 </t-link>
+        </t-popconfirm>
         <t-link
           v-else-if="row.status === 'ARCHIVED'"
           theme="primary"
           :disabled="locked"
           @click="changeStatus('restore', row)"
-          >恢复</t-link
         >
-        <t-popconfirm content="确定永久删除吗？如需保留历史身份，请使用归档。" @confirm="changeStatus('delete', row)"
-          ><t-link theme="danger" :disabled="locked">删除</t-link></t-popconfirm
-        >
+          恢复
+        </t-link>
+        <t-popconfirm content="确定永久删除吗？如需保留历史身份，请使用归档。" @confirm="changeStatus('delete', row)">
+          <t-link theme="danger" :disabled="locked">删除</t-link>
+        </t-popconfirm>
       </template>
     </editable-table>
   </div>
