@@ -104,31 +104,25 @@ let observer;
 let focusFrame;
 let disposed = false;
 const pending = computed(() => props.loading || validating.value);
-const locked = computed(() => props.loading || props.disabled || validating.value || !!editingRow.value);
+const locked = computed(() => pending.value || props.disabled || !!editingRow.value);
 const tableData = computed(() =>
   (props.dataAdapter || createTableData)(props.data, editingRow.value, { rowKey: props.rowKey, isNew: isNew.value }),
 );
 const editableKeys = computed(() => (editingRow.value ? [get(editingRow.value, props.rowKey)] : []));
 const tableColumns = computed(() => {
-  const columns = props.columns.map((column) =>
-    column.edit
-      ? {
-          ...column,
-          edit: {
-            ...column.edit,
-            props: (context) => ({
-              ...(typeof column.edit.props === 'function' ? column.edit.props(context) : column.edit.props),
-              disabled:
-                !!(typeof column.edit.props === 'function'
-                  ? column.edit.props(context)?.disabled
-                  : column.edit.props?.disabled) ||
-                props.loading ||
-                validating.value,
-            }),
-          },
-        }
-      : column,
-  );
+  const columns = props.columns.map((column) => {
+    if (!column.edit) return column;
+    return {
+      ...column,
+      edit: {
+        ...column.edit,
+        props: (context) => {
+          const editProps = typeof column.edit.props === 'function' ? column.edit.props(context) : column.edit.props;
+          return { ...editProps, disabled: pending.value || !!editProps?.disabled };
+        },
+      },
+    };
+  });
   if (props.draggable && !columns.some((column) => column.colKey === 'drag'))
     columns.unshift({ title: '', colKey: 'drag', width: 48 });
   if (!columns.some((column) => column.colKey === 'op'))
@@ -180,7 +174,7 @@ const addRow = (defaults = {}) => {
 };
 /** 原生列编辑事件只更新副本，业务保存时获得完整记录。 */
 const handleRowEdit = (context) => {
-  if (!editingRow.value || props.loading || !isEditing(context.row)) return;
+  if (pending.value || !isEditing(context.row)) return;
   set(editingRow.value, context.col.colKey, context.value);
   emit('row-edit', { ...context, editedRow: cloneDeep(editingRow.value) });
 };
@@ -194,7 +188,7 @@ const validateRow = async () => {
   return message !== false && !error.value;
 };
 const save = async () => {
-  if (!editingRow.value || props.loading || validating.value) return;
+  if (!editingRow.value || pending.value) return;
   validating.value = true;
   try {
     if (!(await validateRow())) {
@@ -222,7 +216,7 @@ const finishEdit = () => {
   tableRef.value?.clearValidateData?.();
 };
 const cancel = () => {
-  if (props.loading || validating.value) return;
+  if (pending.value) return;
   finishEdit();
   emit('cancel');
 };
@@ -232,7 +226,7 @@ const setError = (message) => {
 /** 拖动只从手柄触发，不修改受控 data；增强层自行适配特殊数据及事件。 */
 const dragOptions = {
   filter: (event) => {
-    if (locked.value || !event.target.closest('.editable-table__handle')) return true;
+    if (locked.value) return true;
     const key = event.target.closest('tr')?.dataset.editableKey;
     const row = props.resolveRow
       ? props.resolveRow(tableData.value, key)
@@ -241,15 +235,7 @@ const dragOptions = {
   },
 };
 const handleDragSort = (context) => {
-  if (
-    locked.value ||
-    !context.current ||
-    !context.target ||
-    context.currentIndex === context.targetIndex ||
-    !props.canDrag(context.current) ||
-    props.beforeDragSort?.(context) === false
-  )
-    return;
+  if (locked.value || props.beforeDragSort?.(context) === false) return;
   emit('drag-sort', context);
 };
 /** 保留原生 rowAttributes，内部仅追加手柄定位所需的主键。 */

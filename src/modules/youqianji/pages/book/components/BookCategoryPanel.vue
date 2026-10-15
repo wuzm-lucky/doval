@@ -2,8 +2,9 @@
   <div class="panel">
     <t-space>
       <t-radio-group :value="direction" variant="default-filled" :disabled="busy" @change="switchDirection">
-        <t-radio-button value="EXPENSE">支出</t-radio-button>
-        <t-radio-button value="INCOME">收入</t-radio-button>
+        <t-radio-button v-for="option in directionOptions" :key="option.value" :value="option.value">
+          {{ option.label }}
+        </t-radio-button>
       </t-radio-group>
     </t-space>
     <t-row class="toolbar" justify="space-between">
@@ -36,10 +37,10 @@
       size="small"
       :tree="treeConfig"
       v-model:expanded-tree-nodes="expandedKeys"
-      :before-drag-sort="canSort"
+      :before-drag-sort="canMove"
       :can-drag="canDrag"
       @save="saveRow"
-      @drag-sort="sortRows"
+      @drag-sort="moveRows"
     >
       <template #icon="{ row, draft, editing }">
         <t-select
@@ -97,7 +98,7 @@
       </template>
       <template #status="{ row }">
         <t-tag :theme="row.status === 'ACTIVE' ? 'success' : 'default'" variant="light">{{
-          row.status === 'ACTIVE' ? '可用' : row.status === 'ARCHIVED' ? '归档' : '待保存'
+          row.status ? archiveStatus.getLabel(row.status) : '待保存'
         }}</t-tag>
       </template>
       <template #row-actions="{ row, locked }">
@@ -134,6 +135,7 @@
 </template>
 
 <script setup>
+import { useDict } from '@framework/store';
 import { computed, onMounted, onBeforeUnmount, ref, nextTick, watch } from 'vue';
 import { Input, MessagePlugin, DialogPlugin } from 'tdesign-vue-next';
 import EditableTreeTable from '@framework/components/editable-table/EditableTreeTable.vue';
@@ -148,6 +150,8 @@ import {
 } from '@youqianji/api/bookcategory';
 
 /** 当前业务面板负责查询、接口请求及字段转换，基础表格仅处理编辑交互。 */
+// 归档状态来自共享字典，未保存行保留页面临时状态。
+const archiveStatus = useDict('youqianji.archivestatus');
 const props = defineProps({ bookId: { type: [Number, String], required: true } });
 const tableRef = ref();
 const rows = ref([]);
@@ -158,16 +162,16 @@ const searchKey = ref('');
 const appliedSearchKey = ref('');
 const locked = computed(() => busy.value || !loaded.value || !!draft.value);
 let disposed = false;
-let version = 0;
 const rowClassName = ({ row }) => (row.status === 'ARCHIVED' ? 'archived-row' : '');
+// 收支方向由字典提供选项，树的展开状态继续按业务值独立保存。
+const { options: directionOptions } = useDict('youqianji.bookcategorytype');
 const direction = ref('EXPENSE');
 const matchedIds = ref(new Set());
 const expandedByType = ref({ EXPENSE: [], INCOME: [] });
 const treeConfig = { childrenKey: 'children', treeNodeColumnIndex: 1, defaultExpandAll: false };
-/** 应用已提交的检索条件，版本号和销毁检查阻止旧响应覆盖当前视图。 */
+/** 串行加载已提交的检索条件，销毁后忽略响应。 @author wuzm */
 const loadRows = async () => {
   if (busy.value || disposed) return;
-  const current = ++version;
   busy.value = true;
   loaded.value = false;
   try {
@@ -176,7 +180,7 @@ const loadRows = async () => {
       listBookCategory(query),
       appliedSearchKey.value ? listBookCategory({ ...query, searchKey: undefined }) : Promise.resolve(null),
     ]);
-    if (!disposed && current === version) {
+    if (!disposed) {
       rows.value = all || matched;
       matchedIds.value = new Set(matched.map((row) => String(row.id)));
       loaded.value = true;
@@ -184,12 +188,12 @@ const loadRows = async () => {
   } catch (reason) {
     if (!disposed) MessagePlugin.error(reason.message || '列表加载失败，请重新查询');
   } finally {
-    if (!disposed && current === version) busy.value = false;
+    busy.value = false;
   }
 };
 /** 业务离开检查服务于查询、分组和外层抽屉关闭。 */
 const guardLeave = (proceed) => {
-  if (busy.value || tableRef.value?.isPending()) return;
+  if (tableRef.value?.isPending()) return;
   if (!draft.value) {
     proceed();
     return;
@@ -222,15 +226,9 @@ const onReset = () =>
 /** 外部新增按钮只提供业务默认字段，末行插入及输入聚焦交由表格完成。 */
 const addRow = () => tableRef.value?.addRow({ name: '', pid: 0, type: direction.value, icon: '', color: '' });
 /** 业务校验保持后端字段约定，组件不包含名称或颜色等专有字段。 */
-const validateRow = (row) =>
-  !row.name?.trim()
-    ? '请输入名称'
-    : row.color?.trim() && !/^#[0-9a-fA-F]{6}$/.test(row.color.trim())
-      ? '颜色必须为 #RRGGBB 格式'
-      : '';
+const validateRow = (row) => (row.color && !/^#[0-9a-fA-F]{6}$/.test(row.color) ? '颜色必须为 #RRGGBB 格式' : '');
 /** 保存仅提交白名单字段；成功后退出编辑，失败保留输入。 */
 const saveRow = async ({ row, isNew }) => {
-  if (busy.value) return;
   const payload = {
     bookId: props.bookId,
     name: row.name.trim(),
@@ -251,7 +249,7 @@ const saveRow = async ({ row, isNew }) => {
   } catch (reason) {
     if (!disposed) tableRef.value?.setError(reason.message || '保存失败，请重试');
   } finally {
-    if (!disposed) busy.value = false;
+    busy.value = false;
   }
 };
 /** 归档、恢复、删除仍由业务页选择独立接口，不进入基础组件。 */
@@ -267,22 +265,26 @@ const changeStatus = async (action, row) => {
   } catch (reason) {
     if (!disposed) MessagePlugin.error(reason.message || '操作失败，请重试');
   } finally {
-    if (!disposed) busy.value = false;
+    busy.value = false;
   }
 };
-/** 拖动上下文由基础表格提供，业务页负责相对位置契约和接口持久化。 */
-const sortRows = async ({ current, target, currentIndex, targetIndex }) => {
-  if (locked.value || !current || !target || currentIndex === targetIndex || !canSort({ current, target })) return;
+/** 保存同级类别移动位置，更新平面业务数据以保留完整子树。 @author wuzm */
+const moveRows = async ({ current, target, currentIndex, targetIndex }) => {
   busy.value = true;
   try {
     await moveBookCategory({ id: current.id, targetId: target.id, where: currentIndex > targetIndex ? 1 : -1 });
     if (disposed) return;
-    busy.value = false;
-    await loadRows();
+    // 基础树表已校验同父级移动，仅调整节点顺序，父级关联及子树保持不变。
+    const ordered = [...rows.value];
+    const sourceIndex = ordered.findIndex((row) => String(row.id) === String(current.id));
+    const [moved] = ordered.splice(sourceIndex, 1);
+    const destinationIndex = ordered.findIndex((row) => String(row.id) === String(target.id));
+    ordered.splice(destinationIndex + (currentIndex > targetIndex ? 0 : 1), 0, moved);
+    rows.value = ordered;
   } catch (reason) {
     if (!disposed) MessagePlugin.error(reason.message || '排序失败，请重试');
   } finally {
-    if (!disposed) busy.value = false;
+    busy.value = false;
   }
 };
 /** 构建嵌套数据交给 EnhancedTable，检索时保留匹配节点的祖先。 */
@@ -323,7 +325,7 @@ const canRestore = (row) => {
   return true;
 };
 const canDrag = (row) => !appliedSearchKey.value && canRestore(row);
-const canSort = ({ current, target }) =>
+const canMove = ({ current, target }) =>
   !appliedSearchKey.value && String(current.pid) === String(target.pid) && canRestore(current);
 const addChild = (row) => {
   if (locked.value || String(row.pid) !== '0' || row.status !== 'ACTIVE') return;
@@ -405,7 +407,7 @@ const columns = [
       showEditIcon: false,
       component: Input,
       props: { maxlength: 100, placeholder: '请输入名称' },
-      rules: [{ required: true, message: '请输入名称' }],
+      rules: [{ validator: (value) => !!value?.trim(), message: '请输入名称' }],
     },
   },
   { title: '图标', colKey: 'icon', width: 150 },
@@ -416,7 +418,6 @@ const columns = [
 onMounted(loadRows);
 onBeforeUnmount(() => {
   disposed = true;
-  version += 1;
 });
 defineExpose({ guardLeave });
 </script>

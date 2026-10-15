@@ -24,6 +24,8 @@
 
 `canDrag(row)` 决定是否允许从当前行启动拖动，`beforeDragSort(context)` 可以拦截移动；`drag-sort` 事件保留 TDesign 的上下文，由业务转换成后端要求的排序参数。组件不乐观修改受控数据，树表在 EnhancedTable 的 `beforeDragSort` 中通知业务并阻止默认交换，业务回填后才展示最终顺序，接口失败不会留下错误排序。
 
+维护约定：请求与校验状态统一由 `pending` 管理，开启编辑及拖动由 `locked` 管理；原地拖动和手柄识别使用 TDesign 原生行为，不重复校验事件字段。动态编辑属性每次只求值一次。业务保存事件不重复检查忙碌状态，串行加载无需额外请求版本号；保留销毁后忽略异步响应、编辑副本、输入校验及树节点父级检查。维护作者：wuzm。
+
 `EditableTreeTable` 接收嵌套 `data` 和原生 `tree` 配置，默认子字段为 `children`；`treeNodeColumnIndex` 在有拖动列时默认1，否则0。通过 `v-model:expanded-tree-nodes` 控制展开节点，默认加减方框图标。普通组件的 `addRow(defaults)` 在列表末尾新增。树组件扩展为 `addRow(defaults, parentKey)`，在父级子列表末尾添加并展开父级；省略 parentKey 在根列表末尾新增。检索补全祖先、限制同级排序、父级归档校验由业务提供。
 
 通过 `getTable()` 获取底层 TDesign 实例，用于需要的原生树操作。受控 data 变化由 EnhancedTable 自身同步内部树状态，外层不重复调用 `resetData`，避免异步展开执行两次。不要将底层实例修改和受控 data 更新混用为两个数据源。

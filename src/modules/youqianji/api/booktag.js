@@ -28,6 +28,6 @@ export function restoreBookTag(id) {
 }
 
 /** 相对目标移动标签：1 为之前，-1 为之后。 @author wuzm */
-export function sortBookTag(data) {
-  return request.post({ url: `${prefix}/tag/sort`, data });
+export function moveBookTag(data) {
+  return request.post({ url: `${prefix}/tag/move`, data });
 }

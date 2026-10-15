@@ -28,6 +28,6 @@ export function restoreBookMember(id) {
 }
 
 /** 相对目标成员排序：where=1 为之前，-1 为之后。 @author wuzm */
-export function sortBookMember(data) {
-  return request.post({ url: `${prefix}/member/sort`, data });
+export function moveBookMember(data) {
+  return request.post({ url: `${prefix}/member/move`, data });
 }

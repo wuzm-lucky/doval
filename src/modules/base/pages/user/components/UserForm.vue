@@ -21,14 +21,10 @@
           <t-input v-model="formData.email" :style="fieldStyle" />
         </t-form-item>
         <t-form-item label="性别" name="gender">
-          <t-select v-model="formData.gender" clearable :style="fieldStyle">
-            <t-option label="男" :value="1" /><t-option label="女" :value="2" />
-          </t-select>
+          <t-select v-model="formData.gender" clearable :options="genderOptions" :style="fieldStyle" />
         </t-form-item>
         <t-form-item label="状态" name="status">
-          <t-select v-model="formData.status" :style="fieldStyle">
-            <t-option label="启用" :value="1" /><t-option label="停用" :value="0" />
-          </t-select>
+          <t-select v-model="formData.status" :options="statusOptions" :style="fieldStyle" />
         </t-form-item>
         <t-form-item class="form-actions">
           <t-button variant="outline" @click="closeForm">取消</t-button>
@@ -40,6 +36,7 @@
 </template>
 
 <script setup>
+import { useDict } from '@framework/store';
 import { ref, watch } from 'vue';
 
 /** 用户编辑弹窗。 */
@@ -49,6 +46,9 @@ const props = defineProps({
 });
 const emit = defineEmits(['update:visible', 'submit']);
 const rules = { username: [{ required: true, message: '请输入用户名', type: 'error' }] };
+// 字典保留数字值，支持性别与完整用户账号状态的选择和回显。
+const { options: genderOptions } = useDict('user.gender');
+const { options: statusOptions } = useDict('user.userstatus');
 const fieldStyle = { width: '480px' };
 const formVisible = ref(false);
 const formData = ref({});

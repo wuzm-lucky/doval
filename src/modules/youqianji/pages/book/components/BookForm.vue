@@ -46,6 +46,7 @@
 </template>
 
 <script setup>
+import { useDict } from '@framework/store';
 import { computed, ref, watch } from 'vue';
 import { MessagePlugin } from 'tdesign-vue-next';
 
@@ -62,29 +63,12 @@ const rules = {
   currency: [{ required: true, message: '请选择默认币种', type: 'error' }],
 };
 const fieldStyle = { width: '480px' };
-const currencyOptions = [
-  ['CNY', '人民币'],
-  ['HKD', '港币'],
-  ['USD', '美元'],
-  ['EUR', '欧元'],
-  ['GBP', '英镑'],
-  ['JPY', '日元'],
-  ['SGD', '新加坡元'],
-  ['AUD', '澳大利亚元'],
-  ['CAD', '加拿大元'],
-  ['CHF', '瑞士法郎'],
-  ['NZD', '新西兰元'],
-  ['MOP', '澳门元'],
-  ['TWD', '新台币'],
-  ['KRW', '韩元'],
-  ['THB', '泰铢'],
-  ['MYR', '马来西亚林吉特'],
-  ['IDR', '印度尼西亚卢比'],
-  ['PHP', '菲律宾比索'],
-  ['INR', '印度卢比'],
-  ['AED', '阿联酋迪拉姆'],
-].map(([value, label]) => ({ value, label: `${label}（${value}）` }));
-const formVisible = ref(false);
+// 按需读取共享币种字典，派生展示选项，不修改缓存中的字典项。
+const currencyDict = useDict('youqianji.currency');
+const currencyOptions = computed(() =>
+  currencyDict.options.value.map((item) => ({ ...item, label: `${item.label}（${item.value}）` })),
+);
+const formVisible = computed({ get: () => props.visible, set: (visible) => emit('update:visible', visible) });
 const formData = ref({});
 const coverFiles = ref([]);
 const coverFailed = ref(false);
@@ -123,22 +107,14 @@ const uploadCover = async (file) => {
 };
 
 watch(
-  () => props.visible,
-  (visible) => {
-    formVisible.value = visible;
-  },
-  { immediate: true },
-);
-watch(formVisible, (visible) => emit('update:visible', visible));
-watch(
   () => props.data,
   (data) => {
     // 使用副本编辑，取消时不改变列表中的原始账簿数据。
-    formData.value = { ...data, currency: data?.currency || 'CNY' };
+    formData.value = { ...data, currency: data.currency || 'CNY' };
     coverFiles.value = [];
     coverFailed.value = false;
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 );
 </script>
 

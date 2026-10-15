@@ -36,3 +36,8 @@ export function showBook(id) {
 export function hideBook(id) {
   return request.post({ url: `${prefix}/hide/${id}` });
 }
+
+/** 调整本人账簿顺序：where=1 为目标之前，-1 为之后；targetId=0、where=0 为末尾。 @author wuzm */
+export function moveBook(data) {
+  return request.post({ url: `${prefix}/move`, data });
+}

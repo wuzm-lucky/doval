@@ -2,13 +2,20 @@
   <div :class="prefix + '-main-wrapper'">
     <div ref="containerRef" class="container">
       <t-row class="header" justify="space-between">
-        <t-button @click="openForm()">新增</t-button>
+        <t-button :disabled="moving" @click="openForm()">新增</t-button>
         <t-space>
-          <t-input v-model="query.searchKey" placeholder="请输入关键词" clearable @enter="onSearch" @clear="onSearch">
+          <t-input
+            v-model="query.searchKey"
+            :disabled="moving"
+            placeholder="请输入关键词"
+            clearable
+            @enter="onSearch"
+            @clear="onSearch"
+          >
             <template #suffix-icon><search-icon size="16px" /></template>
           </t-input>
-          <t-button theme="primary" @click="onSearch">查询</t-button>
-          <t-button theme="default" @click="onReset">重置</t-button>
+          <t-button theme="primary" :disabled="moving" @click="onSearch">查询</t-button>
+          <t-button theme="default" :disabled="moving" @click="onReset">重置</t-button>
         </t-space>
       </t-row>
       <t-table
@@ -18,9 +25,19 @@
         :columns="columns"
         row-key="id"
         :pagination="pagination"
-        :loading="loading"
+        :loading="loading || moving"
+        drag-sort="row-handler"
+        :drag-sort-options="dragOptions"
+        @drag-sort="moveRows"
         @page-change="onPageChange"
       >
+        <template #drag>
+          <t-tooltip :content="query.searchKey.trim() ? '清空关键词后可拖动排序' : '拖动调整当前页账簿顺序'">
+            <move-icon
+              :class="['move-handle', { 'move-handle--disabled': loading || moving || !!query.searchKey.trim() }]"
+            />
+          </t-tooltip>
+        </template>
         <template #cover="{ row }">
           <t-image v-if="row.cover" class="cover-image" :src="getCoverUrl(row.cover)" fit="cover" />
           <div v-else class="cover-placeholder">账簿</div>
@@ -28,16 +45,18 @@
         <template #currency="{ row }">{{ getCurrencyLabel(row.currency) }}</template>
         <template #status="{ row }">
           <t-tag :theme="row.status === 'SHOW' ? 'success' : 'default'" variant="light">
-            {{ row.status === 'SHOW' ? '显示' : '隐藏' }}
+            {{ displayStatus.getLabel(row.status) }}
           </t-tag>
         </template>
         <template #op="{ row }">
           <t-space>
-            <t-link theme="primary" @click="openForm(row)">编辑</t-link>
-            <t-link theme="primary" @click="openSettings(row)">账簿设置</t-link>
-            <t-link theme="primary" @click="toggleStatus(row)">{{ row.status === 'SHOW' ? '隐藏' : '显示' }}</t-link>
+            <t-link theme="primary" :disabled="moving" @click="openForm(row)">编辑</t-link>
+            <t-link theme="primary" @click="openSettings(row)">设置</t-link>
+            <t-link theme="primary" :disabled="moving" @click="toggleStatus(row)">{{
+              displayStatus.getLabel(row.status === 'SHOW' ? 'HIDE' : 'SHOW')
+            }}</t-link>
             <t-popconfirm content="确定删除该账簿吗？" @confirm="handleDelete(row)">
-              <t-link theme="danger">删除</t-link>
+              <t-link theme="danger" :disabled="moving">删除</t-link>
             </t-popconfirm>
           </t-space>
         </template>
@@ -49,18 +68,20 @@
 </template>
 
 <script setup>
-import { SearchIcon } from 'tdesign-icons-vue-next';
+import { MoveIcon, SearchIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { deleteBook, getBook, hideBook, pageList, saveBook, showBook } from '@youqianji/api/book';
+import { deleteBook, getBook, hideBook, pageList, saveBook, showBook, moveBook } from '@youqianji/api/book';
 import { downloadUrl } from '@framework/api/file';
 import { prefix } from '@framework/config/global';
+import { useDict } from '@framework/store';
 import { normalizePage } from '@framework/utils/page';
 import BookForm from './components/BookForm.vue';
 import BookSettingsDrawer from './components/BookSettingsDrawer.vue';
 
 const columns = [
+  { title: '排序', colKey: 'drag', width: 64 },
   { title: '封面', colKey: 'cover', width: 80 },
   { title: '账簿名称', colKey: 'name', width: '28%', ellipsis: true },
   { title: '默认币种', colKey: 'currency', width: '20%', ellipsis: true },
@@ -68,34 +89,18 @@ const columns = [
   { title: '显示状态', colKey: 'status', width: '16%' },
   { title: '操作', colKey: 'op', fixed: 'right', width: 280 },
 ];
-const currencyLabels = {
-  CNY: '人民币',
-  HKD: '港币',
-  USD: '美元',
-  EUR: '欧元',
-  GBP: '英镑',
-  JPY: '日元',
-  SGD: '新加坡元',
-  AUD: '澳大利亚元',
-  CAD: '加拿大元',
-  CHF: '瑞士法郎',
-  NZD: '新西兰元',
-  MOP: '澳门元',
-  TWD: '新台币',
-  KRW: '韩元',
-  THB: '泰铢',
-  MYR: '马来西亚林吉特',
-  IDR: '印度尼西亚卢比',
-  PHP: '菲律宾比索',
-  INR: '印度卢比',
-  AED: '阿联酋迪拉姆',
-};
+// 页面按需加载币种与显示状态，单元格渲染只查询响应式内存缓存。
+const currencyDict = useDict('youqianji.currency');
+const displayStatus = useDict('youqianji.displaystatus');
 const defaultPage = { current: 1, pageSize: 20, total: 0 };
 const defaultForm = { name: '', cover: '', currency: 'CNY', desc: '', defaultAccountId: null };
 const query = ref({ searchKey: '' });
 const data = ref([]);
 const pagination = ref({ ...defaultPage });
 const loading = ref(false);
+const moving = ref(false);
+// 筛选期间或请求未完成时阻止启动拖动，避免相对移动依据过期列表。
+const dragOptions = { filter: () => loading.value || moving.value || !!query.value.searchKey.trim() };
 const formVisible = ref(false);
 const settingsVisible = ref(false);
 const settingsBook = ref({});
@@ -116,13 +121,17 @@ const updateTableMaxHeight = () => {
   if (!tableElement) return;
   tableMaxHeight.value = Math.max(window.innerHeight - tableElement.getBoundingClientRect().top - 24, 240);
 };
-const getCurrencyLabel = (currency) => `${currencyLabels[currency] || currency}（${currency}）`;
+/** 从币种字典获取名称并保留编码，缓存更新后自动刷新列表展示。 @author wuzm */
+const getCurrencyLabel = (currency) => `${currencyDict.getLabel(currency)}（${currency}）`;
 const getCoverUrl = (cover) => (/^https?:\/\//i.test(cover) ? cover : downloadUrl(cover, 'book-cover.png'));
 const fetchData = async () => {
   loading.value = true;
   try {
     const { current: page, pageSize: size } = pagination.value;
-    const result = normalizePage(await pageList({ searchKey: query.value.searchKey.trim() }, { page, size }));
+    // 分页查询显式按服务端排序值升序，确保保存后刷新仍展示实际顺序。
+    const result = normalizePage(
+      await pageList({ searchKey: query.value.searchKey.trim() }, { page, size, sort: 'sort,asc' }),
+    );
     data.value = result.rows;
     pagination.value = { ...pagination.value, total: result.total };
   } catch (requestError) {
@@ -132,6 +141,7 @@ const fetchData = async () => {
   }
 };
 const onPageChange = (pageInfo) => {
+  if (moving.value) return;
   pagination.value = { ...pagination.value, current: pageInfo.current, pageSize: pageInfo.pageSize };
   fetchData();
 };
@@ -142,6 +152,20 @@ const onSearch = () => {
 const onReset = () => {
   query.value = { searchKey: '' };
   onSearch();
+};
+/** 将当前页拖动转换为相对位置请求，保存成功后直接采用拖动结果，无需重新查询。 @author wuzm */
+const moveRows = async ({ current, target, currentIndex, targetIndex, newData }) => {
+  moving.value = true;
+  try {
+    // 向上拖动插入目标之前，向下拖动插入目标之后，不使用页内索引作为排序值。
+    await moveBook({ id: current.id, targetId: target.id, where: currentIndex > targetIndex ? 1 : -1 });
+    data.value = newData;
+    MessagePlugin.success('账簿排序已保存');
+  } catch (requestError) {
+    MessagePlugin.error(requestError.message || '账簿排序失败，请重试');
+  } finally {
+    moving.value = false;
+  }
 };
 const openForm = async (row) => {
   try {
@@ -182,6 +206,7 @@ const toggleStatus = async (row) => {
   }
 };
 const handleDelete = async (row) => {
+  if (moving.value) return;
   try {
     await deleteBook(row.id);
     // 删除当前页最后一条后回到上一页，避免落在已不存在的空页。
@@ -214,6 +239,16 @@ onBeforeUnmount(() => containerResizeObserver?.disconnect());
 
 .header {
   margin-bottom: var(--td-comp-margin-m);
+}
+
+.move-handle {
+  cursor: move;
+  color: var(--td-text-color-secondary);
+}
+
+.move-handle--disabled {
+  cursor: not-allowed;
+  color: var(--td-text-color-disabled);
 }
 
 .cover-image,

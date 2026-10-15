@@ -204,6 +204,8 @@ npm run build
 
 ## 浏览器支持
 
+账簿列表支持通过行首手柄拖动调整当前页顺序，分页查询固定传入 `sort=sort,asc`。排序调用 `POST /youqianji/book/move`，提交移动账簿 `id`、参照账簿 `targetId` 和 `where`（向上为 1，向下为 -1）；只有移动到全局末尾才使用 `targetId=0、where=0`，当前页末行不能当作全局末尾。搜索期间及请求处理中禁止拖动，不乐观修改列表，成功后直接采用拖动事件的 `newData` 更新当前页，不重新查询，失败保留原顺序并提示。维护作者：wuzm。
+
 建议使用近两年发布的 Chrome、Edge、Firefox 或 Safari 浏览器访问，以获得完整的现代 Web 能力与最佳体验。
 
 ### 账簿成员状态维护
@@ -222,7 +224,11 @@ npm run build
 
 类别使用 EnhancedTable 原生树能力，加减方框展开、收起；收支用填充式单选按钮切换。检索时并行获取匹配项及完整方向列表，保留命中项及祖先，业务校验依据完整数据。仅一级类别提供添加子类别；归档影响子树，恢复需祖先可用，含子级节点禁止删除。检索期间禁止拖动，正常情况下仅允许同父级移动，服务端移动整棵子树。父级和所有子级拖动手柄统一位于行首排序列，名称列使用原生树形缩进与展开收起图标。
 
-四个表格统一使用 `MoveIcon` 拖动手柄，向前提交 `where=1`，向后提交 `where=-1`。成员、标签、商户分别调用 `/member/sort`、`/tag/sort`、`/merchant/sort`，类别调用 `/category/move`。接口操作留在各面板中，基础组件只发出 TDesign 拖动上下文，失败不改变原顺序。商户以商家、单位、个人、其他按钮分组，新增带入当前 `subjectType`，编辑保留原类型，排序不能跨组。
+四个表格统一使用 `MoveIcon` 拖动手柄，向前提交 `where=1`，向后提交 `where=-1`。成员、标签、商户分别调用 `/member/move`、`/tag/move`、`/merchant/move`，类别调用 `/category/move`。接口操作留在各面板中，基础组件只发出 TDesign 拖动上下文，失败不改变原顺序。商户以商家、单位、个人、其他按钮分组，新增带入当前 `subjectType`，编辑保留原类型，排序不能跨组。
+
+排序保存成功后不重新查询：成员、标签、商户直接将事件的 `newData` 赋给列表；类别树表的事件包含展开后的节点，业务仍按主键在平面数据中移动节点，保留父级关联和完整子树。基础表格统一拦截忙碌、编辑中、无效目标和原地拖动，业务面板不重复检查，类别同父级限制及商户同组限制继续保留。方法文档注明作者，步骤注释仅说明逻辑。维护作者：wuzm。
+
+账簿页面的校验按职责保留一处：名称（含空白输入）由 TDesign 列规则校验，颜色由扩展校验处理；业务保存不重复判断基础组件的提交状态。串行加载保留忙碌状态及销毁检查，不维护重复的请求版本号。表单显隐使用计算属性直接同步，编辑数据仍保留副本；删除确认和分页事件继续检查排序状态，防止延迟确认或分页在排序请求中修改列表。维护作者：wuzm。
 
 标签和类别颜色通过 ColorPicker 编辑，限制不透明单色 HEX，保存转大写，清空提交 null；展示态为不可交互的色块和编码，无边框、阴影及悬浮灰底，并与颜色表头左侧对齐。归档行内容灰化。类别图标沿用菜单图标选择网格，支持搜索、清空和分批渲染。
 
@@ -231,3 +237,37 @@ npm run build
 账簿设置采用操作列统一进入行编辑，名称和说明列设置 `edit.showEditIcon: false` 隐藏原生单元格编辑提示，基础表格保留 TDesign 默认配置能力。维护作者：wuzm。
 
 可编辑表格运行时只保留 `EditableTable.vue` 和 `EditableTreeTable.vue` 两个组件，通用编辑及平面数据投影位于前者，后者负责原生 EnhancedTable 适配、递归数据投影、父级上下文、展开状态及树形拖动；不再拆分 Core 组件或独立数据工具文件。测试与使用文档继续保留。维护作者：wuzm。
+
+### 业务字典加载与缓存
+
+字典由 `src/framework/store/modules/dict.js` 管理，通过 `@framework/store` 导出。接口统一封装在 `src/framework/api/dict.js` 的 `getDetailByCode(code)`，Store 引用该函数，不直接拼接请求地址。编码全局唯一且区分大小写，按需请求 `GET /base/dict/get/detail/code/{code}`；不使用 namespace。页面初始化或弹窗打开时调用 `useDict(code)`，不要在表格单元格渲染函数中创建字典实例。
+
+```js
+import { useDict, loadDicts } from '@framework/store';
+
+const dutytype = useDict('person.dutytype');
+// 下拉框使用 dutytype.options.value，保留接口的 label、value 字段及值类型。
+// 表格单元格使用 dutytype.getLabel(row.dutytype)，仅查询内存。
+// dutytype.getItem(value) 获取完整字典项；loading、error 是计算属性。
+// await dutytype.ready 等待首次加载；await dutytype.reload() 强制重试或刷新。
+// 自动加载失败通过 error 暴露，主动等待 ready、reload 或批量加载时应捕获异常。
+await loadDicts(['order.status', 'order.paytype']);
+```
+
+Pinia 保存响应式内存数据，通过项目现有 persist 插件配置 localStorage 和 pick，使用插件默认序列化与反序列化，插件恢复缓存后通过 afterHydrate 重建排序及查询索引；Store 不手动读取或写入存储。localStorage 的 `doval.dict` 顶层为 `data`，其内部以 code 为 key，各字典项包含 `data`、`loadedAt`、`expiresAt`；通过 `pick: ['data']` 仅保存字典集合，不配置自定义 serializer。旧的无顶层 data 缓存不会恢复，后续按需重新加载。有效期为加载成功后 30 分钟，读取不续期；浏览器刷新优先恢复有效缓存。过期后下次使用才请求，更新期间及失败后保留旧数据，不轮询，字典管理修改后不主动失效。同编码并发合并请求，批量加载按编码去重；所有调用方均失败后可重新加载。
+
+选项按 sort 升序排列，缺省排序值为 0；空字典正常缓存。数字字典兼容数字字符串并正确识别 0，字符串字典区分前导零；文本转换将 null、undefined、空字符串显示为 `—`，未知值回显原值。选项与字典项共享使用，业务需要追加“全部”或修改选项时，应创建副本。localStorage 损坏按缓存未命中处理，写入失败不影响内存使用。持久化按当前标签页的字典集合整体保存，不提供跨标签页合并或实时同步；多标签页同时写入可能覆盖缓存集合，缺失项在后续使用时重新请求。
+
+维护验证使用 `node --test tests/dict.test.mjs`，安装真实 persist 插件，覆盖并发合并、持久化恢复及索引重建、过期失败重试、值匹配、批量加载、损坏项过滤及存储异常。后续维护应继续保持加载与同步查询分离，不在 getter 或渲染过程中发请求。维护作者：wuzm。
+
+账簿设置排序由业务面板在接口成功后按目标行前后位置更新本地数据，不重新请求列表；失败保留原顺序，类别保留父子关联与展开状态。维护作者：wuzm。
+
+账簿列表 `src/modules/youqianji/pages/book/index.vue` 通过 `useDict` 按需加载 `youqianji.currency` 和 `youqianji.displaystatus`，币种名称、状态标签及显示隐藏操作文字均读取字典；币种保留“名称（编码）”格式，状态判断和接口调用继续使用 SHOW、HIDE 业务值。单元格只调用 getLabel，不在渲染时创建字典或触发加载。维护作者：wuzm。
+
+### 业务页面字典替换约定
+
+base 的用户列表及表单使用 user.userstatus，性别选项使用 user.gender，消息查询、发布与列表使用 message.messagetype。有钱记账簿表单与个人配置使用 youqianji.currency，成员、标签、商户、类别面板状态使用 youqianji.archivestatus，商户主体与类别收支方向分别使用 youqianji.bookmerchantsubjecttype、youqianji.bookcategorytype；账簿显示状态以数据库编码 youqianji.displaystatus 为准。
+
+选项直接使用字典 options，币种名称加编码时用 computed 派生副本；状态展示使用 getLabel，操作判断及默认值继续使用后端业务值。新增行的“待保存”、归档恢复确认提示和操作完成消息属于页面交互文案。菜单语言列表继续取框架实际支持的语言包，图标列表来自图标库，不与通用字典混用。维护作者：wuzm。
+
+有钱记相对移动 API 统一使用 moveBook、moveBookMember、moveBookMerchant、moveBookTag、moveBookCategory 命名，页面处理函数为 moveRows，移动状态为 moving，类别同级移动校验为 canMove。表格原生 drag-sort、before-drag-sort 事件与属性及服务端 sort 排序查询字段继续使用原契约。维护作者：wuzm。

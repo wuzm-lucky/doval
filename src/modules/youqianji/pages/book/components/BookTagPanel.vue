@@ -29,7 +29,7 @@
       draggable
       size="small"
       @save="saveRow"
-      @drag-sort="sortRows"
+      @drag-sort="moveRows"
     >
       <template #color="{ row, draft, editing }">
         <t-color-picker
@@ -60,7 +60,7 @@
       </template>
       <template #status="{ row }">
         <t-tag :theme="row.status === 'ACTIVE' ? 'success' : 'default'" variant="light">
-          {{ row.status === 'ACTIVE' ? '可用' : row.status === 'ARCHIVED' ? '归档' : '待保存' }}
+          {{ row.status ? archiveStatus.getLabel(row.status) : '待保存' }}
         </t-tag>
       </template>
       <template #row-actions="{ row, locked }">
@@ -87,6 +87,7 @@
 </template>
 
 <script setup>
+import { useDict } from '@framework/store';
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import { Input, MessagePlugin, DialogPlugin } from 'tdesign-vue-next';
 import EditableTable from '@framework/components/editable-table/EditableTable.vue';
@@ -96,10 +97,12 @@ import {
   archiveBookTag,
   restoreBookTag,
   deleteBookTag,
-  sortBookTag,
+  moveBookTag,
 } from '@youqianji/api/booktag';
 
 /** 当前业务面板负责查询、接口请求及字段转换，基础表格仅处理编辑交互。 */
+// 归档状态来自共享字典，未保存行保留页面临时状态。
+const archiveStatus = useDict('youqianji.archivestatus');
 const props = defineProps({ bookId: { type: [Number, String], required: true } });
 const tableRef = ref();
 const rows = ref([]);
@@ -110,30 +113,28 @@ const searchKey = ref('');
 const appliedSearchKey = ref('');
 const locked = computed(() => busy.value || !loaded.value || !!draft.value);
 let disposed = false;
-let version = 0;
 const rowClassName = ({ row }) => (row.status === 'ARCHIVED' ? 'archived-row' : '');
-/** 应用已提交的检索条件，版本号和销毁检查阻止旧响应覆盖当前视图。 */
+/** 串行加载已提交的检索条件，销毁后忽略响应。 @author wuzm */
 const loadRows = async () => {
   if (busy.value || disposed) return;
-  const current = ++version;
   busy.value = true;
   loaded.value = false;
   try {
     const query = { bookId: props.bookId, searchKey: appliedSearchKey.value || undefined };
     const result = await listBookTag(query);
-    if (!disposed && current === version) {
+    if (!disposed) {
       rows.value = result;
       loaded.value = true;
     }
   } catch (reason) {
     if (!disposed) MessagePlugin.error(reason.message || '列表加载失败，请重新查询');
   } finally {
-    if (!disposed && current === version) busy.value = false;
+    busy.value = false;
   }
 };
 /** 业务离开检查服务于查询、分组和外层抽屉关闭。 */
 const guardLeave = (proceed) => {
-  if (busy.value || tableRef.value?.isPending()) return;
+  if (tableRef.value?.isPending()) return;
   if (!draft.value) {
     proceed();
     return;
@@ -166,15 +167,9 @@ const onReset = () =>
 /** 外部新增按钮只提供业务默认字段，末行插入及输入聚焦交由表格完成。 */
 const addRow = () => tableRef.value?.addRow({ name: '', color: '' });
 /** 业务校验保持后端字段约定，组件不包含名称或颜色等专有字段。 */
-const validateRow = (row) =>
-  !row.name?.trim()
-    ? '请输入名称'
-    : row.color?.trim() && !/^#[0-9a-fA-F]{6}$/.test(row.color.trim())
-      ? '颜色必须为 #RRGGBB 格式'
-      : '';
+const validateRow = (row) => (row.color && !/^#[0-9a-fA-F]{6}$/.test(row.color) ? '颜色必须为 #RRGGBB 格式' : '');
 /** 保存仅提交白名单字段；成功后退出编辑，失败保留输入。 */
 const saveRow = async ({ row, isNew }) => {
-  if (busy.value) return;
   const payload = { bookId: props.bookId, name: row.name.trim(), color: row.color?.trim().toUpperCase() || null };
   if (!isNew) payload.id = row.id;
   busy.value = true;
@@ -188,7 +183,7 @@ const saveRow = async ({ row, isNew }) => {
   } catch (reason) {
     if (!disposed) tableRef.value?.setError(reason.message || '保存失败，请重试');
   } finally {
-    if (!disposed) busy.value = false;
+    busy.value = false;
   }
 };
 /** 归档、恢复、删除仍由业务页选择独立接口，不进入基础组件。 */
@@ -204,22 +199,20 @@ const changeStatus = async (action, row) => {
   } catch (reason) {
     if (!disposed) MessagePlugin.error(reason.message || '操作失败，请重试');
   } finally {
-    if (!disposed) busy.value = false;
+    busy.value = false;
   }
 };
-/** 拖动上下文由基础表格提供，业务页负责相对位置契约和接口持久化。 */
-const sortRows = async ({ current, target, currentIndex, targetIndex }) => {
-  if (locked.value || !current || !target || currentIndex === targetIndex) return;
+/** 保存相对移动位置，成功后直接采用 TDesign 的拖动结果。 @author wuzm */
+const moveRows = async ({ current, target, currentIndex, targetIndex, newData }) => {
   busy.value = true;
   try {
-    await sortBookTag({ id: current.id, targetId: target.id, where: currentIndex > targetIndex ? 1 : -1 });
+    await moveBookTag({ id: current.id, targetId: target.id, where: currentIndex > targetIndex ? 1 : -1 });
     if (disposed) return;
-    busy.value = false;
-    await loadRows();
+    rows.value = newData;
   } catch (reason) {
     if (!disposed) MessagePlugin.error(reason.message || '排序失败，请重试');
   } finally {
-    if (!disposed) busy.value = false;
+    busy.value = false;
   }
 };
 const columns = [
@@ -231,7 +224,7 @@ const columns = [
       showEditIcon: false,
       component: Input,
       props: { maxlength: 100, placeholder: '请输入名称' },
-      rules: [{ required: true, message: '请输入名称' }],
+      rules: [{ validator: (value) => !!value?.trim(), message: '请输入名称' }],
     },
   },
   { title: '颜色', colKey: 'color', width: 160 },
@@ -241,7 +234,6 @@ const columns = [
 onMounted(loadRows);
 onBeforeUnmount(() => {
   disposed = true;
-  version += 1;
 });
 defineExpose({ guardLeave });
 </script>

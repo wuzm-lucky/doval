@@ -23,7 +23,7 @@
       >
         <template #status="{ row }">
           <t-tag :theme="row.status === 1 ? 'success' : 'default'" variant="light">
-            {{ row.status === 1 ? '启用' : '停用' }}
+            {{ userStatus.getLabel(row.status) }}
           </t-tag>
         </template>
         <template #op="{ row }">
@@ -41,6 +41,7 @@
 </template>
 
 <script setup>
+import { useDict } from '@framework/store';
 import { SearchIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
@@ -50,6 +51,8 @@ import { prefix } from '@framework/config/global';
 import { normalizePage } from '@framework/utils/page';
 import UserForm from './components/UserForm.vue';
 
+// 用户状态文本统一读取字典，避免将锁定、注销误显示为停用。
+const userStatus = useDict('user.userstatus');
 const columns = [
   { title: '用户名', colKey: 'username', width: '15%', ellipsis: true },
   { title: '昵称', colKey: 'nickname', width: '15%', ellipsis: true },

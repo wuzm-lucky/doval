@@ -16,7 +16,9 @@
     @save="handleSave"
     @drag-sort="handleDragSort"
   >
-    <template v-for="name in forwardedSlots" :key="name" #[name]="scope"><slot :name="name" v-bind="scope" /></template>
+    <template v-for="name in forwardedSlots" :key="name" #[name]="scope">
+      <slot :name="name" v-bind="scope" />
+    </template>
     <template #treeExpandAndFoldIcon="scope">
       <slot name="treeExpandAndFoldIcon" v-bind="scope">
         <minus-rectangle-icon v-if="scope.type === 'fold'" />
@@ -76,7 +78,7 @@ const adaptTreeData = (data, row, { isNew }) => {
 };
 /** 子级新增时由增强层维护父级上下文并展开父级，校验及聚焦复用普通组件。 */
 const addRow = (defaults = {}, parent = null) => {
-  if (editableRef.value?.isPending() || draft.value || (parent != null && !findRow(props.data, parent))) return false;
+  if (editableRef.value.locked || (parent != null && !findRow(props.data, parent))) return false;
   parentKey.value = parent;
   if (!editableRef.value?.addRow(defaults)) {
     parentKey.value = null;
@@ -86,9 +88,9 @@ const addRow = (defaults = {}, parent = null) => {
   return true;
 };
 const startEdit = (row) => {
-  if (draft.value || editableRef.value?.isPending()) return false;
-  parentKey.value = null;
-  return editableRef.value?.startEdit(row);
+  const started = editableRef.value.startEdit(row);
+  if (started) parentKey.value = null;
+  return started;
 };
 const handleSave = (context) => emit('save', { ...context, parentKey: context.isNew ? parentKey.value : null });
 /** 保留 EnhancedTable 事件形状；受控模式阻止内部交换，等待业务持久化后回填。 */

@@ -32,34 +32,18 @@
 </template>
 
 <script setup>
+import { useDict } from '@framework/store';
 import { MessagePlugin } from 'tdesign-vue-next';
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import { prefix } from '@framework/config/global';
 import { getPersonalConfig, savePersonalConfig } from '@youqianji/api/personalconfig';
 
-const currencyOptions = [
-  ['CNY', '人民币'],
-  ['HKD', '港币'],
-  ['USD', '美元'],
-  ['EUR', '欧元'],
-  ['GBP', '英镑'],
-  ['JPY', '日元'],
-  ['SGD', '新加坡元'],
-  ['AUD', '澳大利亚元'],
-  ['CAD', '加拿大元'],
-  ['CHF', '瑞士法郎'],
-  ['NZD', '新西兰元'],
-  ['MOP', '澳门元'],
-  ['TWD', '新台币'],
-  ['KRW', '韩元'],
-  ['THB', '泰铢'],
-  ['MYR', '马来西亚林吉特'],
-  ['IDR', '印度尼西亚卢比'],
-  ['PHP', '菲律宾比索'],
-  ['INR', '印度卢比'],
-  ['AED', '阿联酋迪拉姆'],
-].map(([value, label]) => ({ value, label: `${label}（${value}）` }));
+// 按需读取共享币种字典，派生展示选项，不修改缓存中的字典项。
+const currencyDict = useDict('youqianji.currency');
+const currencyOptions = computed(() =>
+  currencyDict.options.value.map((item) => ({ ...item, label: `${item.label}（${item.value}）` })),
+);
 
 const form = reactive({ currency: '' });
 const savedCurrency = ref('');

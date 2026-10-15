@@ -28,6 +28,6 @@ export function restoreBookMerchant(id) {
 }
 
 /** 相对目标商户排序：where=1 为之前，-1 为之后。 @author wuzm */
-export function sortBookMerchant(data) {
-  return request.post({ url: `${prefix}/merchant/sort`, data });
+export function moveBookMerchant(data) {
+  return request.post({ url: `${prefix}/merchant/move`, data });
 }

@@ -81,6 +81,7 @@
 </template>
 
 <script setup>
+import { useDict } from '@framework/store';
 import { SearchIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
@@ -98,12 +99,9 @@ const columns = [
   { title: '创建时间', colKey: 'createTime', width: 180, ellipsis: true },
   { title: '操作', colKey: 'op', fixed: 'right', width: 140 },
 ];
-const typeOptions = [
-  { label: '系统公告', value: 'ANNOUNCEMENT' },
-  { label: '提醒', value: 'REMINDER' },
-  { label: '消息', value: 'MESSAGE' },
-];
-const typeLabels = Object.fromEntries(typeOptions.map((item) => [item.value, item.label]));
+// 查询、发布和列表展示共享同一本消息类型字典。
+const messageType = useDict('message.messagetype');
+const { options: typeOptions } = messageType;
 const defaultPage = { current: 1, pageSize: 20, total: 0 };
 const defaultForm = () => ({ type: 'ANNOUNCEMENT', title: '', summary: '', content: '', receiverIds: [] });
 const rules = {
@@ -126,7 +124,8 @@ const tableRef = ref();
 const tableMaxHeight = ref(0);
 let containerResizeObserver;
 
-const getTypeLabel = (type) => typeLabels[type] || type || '消息';
+/** 从消息类型字典同步读取文本，不在单元格渲染中发起请求。 @author wuzm */
+const getTypeLabel = (type) => messageType.getLabel(type);
 
 /** 根据表格距视口底部的可用空间设置最大高度，使超长数据在表体内滚动。 */
 const updateTableMaxHeight = () => {
